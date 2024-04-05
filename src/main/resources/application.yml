@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    druid:
+      driver-class-name: ${digit-kingdom.datasource.driver-class-name}
+      url: jdbc:mysql://${digit-kingdom.datasource.host}:${smart-barrier-gate.datasource.port}/${smart-barrier-gate.datasource.database}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+      username: ${digit-kingdom.datasource.username}
+      password: ${digit-kingdom.datasource.password}
+  profiles:
+    active: dev
+  security:
+    user:
+      name: user
+      password: 123456
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+  redis:
+    host: localhost
+    port: 6379
+    jedis:
+      pool:
+        max-active: 8
+        max-wait: -1
+        max-idle: 8
+
+logging:
+  level:
+    com:
+      group:
+        digitkingdom:
+          mapper: debug
+          service: info
+          controller: info
+
+mybatis:
+  type-aliases-package: "com.async.digitkingdom"
+  mapper-locations: "classpath:mapper/*xml"
+  configuration:
+    map-underscore-to-camel-case: true
+
+digit-kingdom:
+  jwt:
+    # 设置jwt签名加密时使用的秘钥
+    admin-secret-key: digit-kingdom
+    # 设置jwt过期时间
+    admin-ttl: 7200000
+    # 设置前端传递过来的令牌名称
+    admin-token-name: token
