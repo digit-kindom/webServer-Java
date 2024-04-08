@@ -94,6 +94,11 @@
             <version>1.1.1</version>
         </dependency>
         <!--        解决莫名其妙的dofilter异常 -.- -->
+        <dependency>
+            <groupId>com.github.pagehelper</groupId>
+            <artifactId>pagehelper-spring-boot-starter</artifactId>
+            <version>1.4.2</version>
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>

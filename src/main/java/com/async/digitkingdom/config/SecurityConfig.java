@@ -25,7 +25,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeRequests()
-                .antMatchers("/api/login","/user/register").permitAll()
+                // TODO 临时开放/admin/*
+                .antMatchers("/api/login","/user/register","/admin/*").permitAll()
                 .anyRequest().authenticated();
 
 

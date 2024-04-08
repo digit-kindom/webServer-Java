@@ -2,20 +2,30 @@ package com.async.digitkingdom.service.impl;
 
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.common.exception.BadRequestException;
+import com.async.digitkingdom.entity.User;
 import com.async.digitkingdom.entity.dto.RegisterUserDTO;
+import com.async.digitkingdom.entity.vo.UserVO;
 import com.async.digitkingdom.mapper.UserMapper;
 import com.async.digitkingdom.service.UserService;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
     @Autowired
     private UserMapper userMapper;
 
+    /**
+     * 用户注册
+     * @param registerUserDTO
+     * @return
+     */
     @Override
     public Result register(RegisterUserDTO registerUserDTO) {
         registerUserDTO.setDateJoined(LocalDate.now());
@@ -48,5 +58,21 @@ public class UserServiceImpl implements UserService {
         userMapper.insert(registerUserDTO);
 
         return Result.ok("注册成功！");
+    }
+
+    /**
+     * 分页查询用户
+     * @return
+     */
+    @Override
+    public Result<PageInfo<UserVO>> getAllUser(Integer pageNumber,Integer pageSize) {
+
+        PageHelper.startPage(pageNumber, pageSize);
+
+        List<UserVO> list = userMapper.getAllUser();
+
+        PageInfo<UserVO> pageInfo = new PageInfo<>(list);
+
+        return Result.ok(pageInfo);
     }
 }
