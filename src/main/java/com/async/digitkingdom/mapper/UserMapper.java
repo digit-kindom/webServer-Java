@@ -19,13 +19,17 @@ public interface UserMapper {
 
     /**
      * 用户注册
-     * @param registerUserDTO
+     * @param user
      */
-    void insert(RegisterUserDTO registerUserDTO);
+    void insert(User user);
 
     /**
      * 管理员获取用户信息
      * @return
      */
     List<UserVO> getAllUser();
+
+    void update(User user);
+
+    void deleteById(Integer id);
 }

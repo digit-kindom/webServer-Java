@@ -3,8 +3,26 @@
 <mapper namespace="com.async.digitkingdom.mapper.UserMapper">
     <insert id="insert">
         insert into device.auth_user (password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined) VALUES
-        (#{password},#{lastLogin},0,#{username},#{firstName},#{lastName},#{email},0,#{isActive},#{dateJoined})
+        (#{password},#{lastLogin},#{isSuperuser},#{username},#{firstName},#{lastName},#{email},#{isStaff},#{isActive},#{dateJoined})
     </insert>
+    <update id="update">
+        update device.auth_user
+        <set>
+            <if test="password != null">and password = #{password}</if>
+            <if test="is_superuser != null">and password = #{isSuperuser}</if>
+            <if test="username != null">and password = #{username}</if>
+            <if test="first_name != null">and password = #{firstName}</if>
+            <if test="last_name != null">and password = #{lastName}</if>
+            <if test="email != null">and password = #{email}</if>
+            <if test="is_staff != null">and password = #{isStaff}</if>
+            <if test="is_active != null">and password = #{isActive}</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        delete from device.auth_user where id = #{id}
+    </delete>
 
     <select id="getUserByName" resultType="com.async.digitkingdom.entity.User">
         select * from device.auth_user where username = #{username}
