@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.async.digitkingdom.mapper.UserMapper">
+    <insert id="insert">
+        insert into device.auth_user (password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined) VALUES
+        (#{password},#{lastLogin},0,#{username},#{firstName},#{lastName},#{email},0,#{isActive},#{dateJoined})
+    </insert>
+
     <select id="getUserByName" resultType="com.async.digitkingdom.entity.User">
         select * from device.auth_user where username = #{username}
     </select>
