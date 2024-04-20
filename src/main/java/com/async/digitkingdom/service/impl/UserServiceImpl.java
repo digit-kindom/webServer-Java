@@ -137,6 +137,9 @@ public class UserServiceImpl implements UserService {
         if(password == null){
             throw new BadRequestException("传入的密码为空！");
         }
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+        String encode = encoder.encode(password);
+        user.setPassword(encode);
         userMapper.insert(user);
         return Result.ok("添加成功！");
     }
