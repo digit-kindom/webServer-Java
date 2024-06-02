@@ -22,11 +22,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.csrf().disable()
+                .cors().and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeRequests()
                 // TODO 临时开放/admin/**
-                .antMatchers("/api/login","/user/register","/admin/**").permitAll()
+                .antMatchers("/api/**","/user/register","/admin/**").permitAll()
                 .anyRequest().authenticated();
 
 

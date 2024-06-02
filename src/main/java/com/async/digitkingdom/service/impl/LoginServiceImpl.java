@@ -1,9 +1,8 @@
 package com.async.digitkingdom.service.impl;
 
-import com.async.digitkingdom.common.JwtUtils;
-import com.async.digitkingdom.common.RedisCache;
+import com.async.digitkingdom.common.utils.JwtUtils;
+import com.async.digitkingdom.common.utils.RedisCache;
 import com.async.digitkingdom.common.Result;
-import com.async.digitkingdom.common.exception.ForbiddenException;
 import com.async.digitkingdom.common.exception.PasswordAuthException;
 import com.async.digitkingdom.entity.LoginUser;
 import com.async.digitkingdom.entity.dto.LoginDTO;
@@ -18,7 +17,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 @Service
 public class LoginServiceImpl implements LoginService {
@@ -47,6 +45,7 @@ public class LoginServiceImpl implements LoginService {
         String username = loginUser.getUser().getUsername();
         Map<String, Object> claim = new HashMap<>();
         claim.put("username", username);
+        claim.put("authorities", loginUser.getAuthorities());
         String jwt = JwtUtils.createJWT(jwtProperties.getAdminSecretKey(), jwtProperties.getAdminTtl(), claim);
         // 将 authenticate 存入redis
         redisCache.setCacheObject("login:" + username, loginUser);

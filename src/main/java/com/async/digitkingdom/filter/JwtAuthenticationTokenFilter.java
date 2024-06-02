@@ -1,7 +1,7 @@
 package com.async.digitkingdom.filter;
 
-import com.async.digitkingdom.common.JwtUtils;
-import com.async.digitkingdom.common.RedisCache;
+import com.async.digitkingdom.common.utils.JwtUtils;
+import com.async.digitkingdom.common.utils.RedisCache;
 import com.async.digitkingdom.common.exception.ForbiddenException;
 import com.async.digitkingdom.entity.LoginUser;
 import com.async.digitkingdom.entity.User;
@@ -42,7 +42,7 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String token = request.getHeader("token");
+        String token = request.getHeader("Authorization");
         if(!StringUtils.hasText(token)){
             filterChain.doFilter(request,response);
             return;

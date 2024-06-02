@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.async.digitkingdom.mapper.DeviceMapper">
+
+    <insert id="insert">
+        insert into device.device (device_id, device_name, device_manufacturer, device_status, create_date, device_type, user_id, location)
+        values
+        (#{device.deviceId},#{device.deviceName},#{device.deviceManufacturer},#{device.deviceStatus},#{device.createDate},#{device.deviceType},
+         #{device.userId},#{device.location})
+    </insert>
+    <update id="update">
+        update device.device
+        <set>
+            <if test="deviceName != null">device_name = #{deviceName},</if>
+            <if test="deviceType != null">device_type = #{deviceType},</if>
+            <if test="deviceManufacturer != null">device_manufacturer = #{deviceManufacturer},</if>
+            <if test="deviceStatus != null">device_status = #{deviceStatus},</if>
+            <if test="location != null">location = #{location},</if>
+            <if test="updateTime != null">update_date = #{updateTime}</if>
+        </set>
+        where device_id = #{deviceId}
+    </update>
+</mapper>

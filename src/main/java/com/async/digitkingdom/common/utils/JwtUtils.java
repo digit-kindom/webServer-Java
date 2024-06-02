@@ -1,4 +1,4 @@
-package com.async.digitkingdom.common;
+package com.async.digitkingdom.common.utils;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;

@@ -8,6 +8,8 @@ public class DigitKingdomApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(DigitKingdomApplication.class, args);
+
+
     }
 
 }
