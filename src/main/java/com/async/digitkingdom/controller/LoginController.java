@@ -1,7 +1,6 @@
 package com.async.digitkingdom.controller;
 
 import com.async.digitkingdom.common.Result;
-import com.async.digitkingdom.common.utils.WebSocketClient;
 import com.async.digitkingdom.entity.dto.LoginDTO;
 import com.async.digitkingdom.service.LoginService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,8 +11,6 @@ import java.util.HashMap;
 @RestController()
 @RequestMapping("/api")
 public class LoginController {
-    @Autowired
-    private WebSocketClient webSocketClient;
 
     @Autowired
     private LoginService loginService;
@@ -26,11 +23,5 @@ public class LoginController {
     @GetMapping("/logout")
     public Result logout(){
         return loginService.logout();
-    }
-
-    @GetMapping("/test")
-    public Result test(){
-        webSocketClient.sendMessage("1");
-        return Result.ok();
     }
 }

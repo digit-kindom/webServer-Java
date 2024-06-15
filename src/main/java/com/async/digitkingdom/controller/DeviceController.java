@@ -1,11 +1,15 @@
 package com.async.digitkingdom.controller;
 
 import com.async.digitkingdom.common.Result;
+import com.async.digitkingdom.common.utils.MyWebSocketClient;
 import com.async.digitkingdom.entity.Device;
 import com.async.digitkingdom.entity.dto.AddDeviceDto;
+import com.async.digitkingdom.entity.dto.TurnOnLightDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
+import com.async.digitkingdom.mapper.DeviceMapper;
 import com.async.digitkingdom.service.DeviceService;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -15,6 +19,10 @@ import javax.annotation.Resource;
 public class DeviceController {
     @Resource
     private DeviceService deviceService;
+    @Resource
+    private MyWebSocketClient webSocketClient;
+    @Autowired
+    private DeviceMapper deviceMapper;
 
     @PostMapping("/add")
     public Result addDevice(@RequestBody AddDeviceDto addDeviceDto) {
@@ -41,5 +49,23 @@ public class DeviceController {
     @PutMapping()
     public Result update(@RequestBody UpdateDeviceDto updateDeviceDto) {
         return deviceService.update(updateDeviceDto);
+    }
+
+    @PostMapping("/lightOperation")
+    public Result lightOperation(@RequestParam String deviceId){
+        TurnOnLightDto turnOnLightDto = new TurnOnLightDto();
+        webSocketClient.send(turnOnLightDto.toString());
+        Device byDeviceId = deviceMapper.getByDeviceId(deviceId);
+        if(byDeviceId == null){
+            return Result.error("传入了错误的id！");
+        }
+        UpdateDeviceDto updateDeviceDto = new UpdateDeviceDto();
+        if(byDeviceId.getDeviceStatus().equals("On")){
+            updateDeviceDto.setDeviceStatus("Off");
+        }else {
+            updateDeviceDto.setDeviceStatus("On");
+        }
+        deviceMapper.update(updateDeviceDto);
+        return Result.ok("完成操作！");
     }
 }

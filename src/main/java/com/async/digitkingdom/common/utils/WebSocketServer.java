@@ -1,75 +1,117 @@
 package com.async.digitkingdom.common.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.websocket.*;
+import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
-import java.util.Map;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
-
+/**
+ * websocket服务端，接收websocket客户端长连接
+ */
+@ServerEndpoint("/websocket")
 @Component
-@ServerEndpoint(value = "/websocket")
+@Slf4j
 public class WebSocketServer {
-    // 客户端会话列表
-    private static final Map<String, Session> clientSessions = new ConcurrentHashMap<>();
 
+    // 与某个客户端的连接会话，需要通过它来给客户端发送数据
+    private Session session;
+
+    // session集合,存放对应的session
+    private static ConcurrentHashMap<Integer, Session> sessionPool = new ConcurrentHashMap<>();
+
+    // concurrent包的线程安全Set,用来存放每个客户端对应的WebSocket对象。
+    private static CopyOnWriteArraySet<WebSocketServer> webSocketSet = new CopyOnWriteArraySet<>();
+
+    /**
+     * 建立WebSocket连接
+     *
+     * @param session
+     * @param userId  用户ID
+     */
     @OnOpen
-    public void onServerOpen(Session session) {
-        // 客户端连接到本地 WebSocket 服务
-        System.out.println("Client connected: " + session.getId());
-        clientSessions.put(session.getId(), session);
-    }
-
-    @OnMessage
-    public void onMessage(Session session, String message) {
-        // 处理客户端发送的消息
-        System.out.println("Received message from client " + session.getId() + ": " + message);
-
-        // 示例：将收到的消息广播给所有客户端
-        //broadcast(message);
-    }
-
-    @OnClose
-    public void onServerClose(Session session, CloseReason reason) {
-        // 客户端断开连接
-        System.out.println("Client " + session.getId() + " disconnected: " + reason);
-        clientSessions.remove(session.getId());
-    }
-
-    @OnError
-    public void onError(Session session, Throwable throwable) {
-        // 客户端连接发生错误
-        System.out.println("WebSocket client error: " + throwable.getMessage());
-        clientSessions.remove(session.getId());
-    }
-
-    // 发送消息给指定客户端
-    public void sendToClient(String clientId, String message) {
-        Session session = clientSessions.get(clientId);
-        if (session != null && session.isOpen()) {
-            session.getAsyncRemote().sendText(message);
-        }
-    }
-
-    // 广播消息给所有客户端
-    public void broadcast(String message) {
-        for (Session session : clientSessions.values()) {
-            if (session.isOpen()) {
-                session.getAsyncRemote().sendText(message);
+    public void onOpen(Session session, @PathParam(value = "id") Integer userId) {
+        log.info("WebSocket建立连接中,连接用户ID：{}", userId);
+        try {
+            Session historySession = sessionPool.get(userId);
+            // historySession不为空,说明已经有人登陆账号,应该删除登陆的WebSocket对象
+            if (historySession != null) {
+                webSocketSet.remove(historySession);
+                historySession.close();
             }
+        } catch (IOException e) {
+            log.error("重复登录异常,错误信息：" + e.getMessage(), e);
+        }
+        // 建立连接
+        this.session = session;
+        webSocketSet.add(this);
+        sessionPool.put(userId, session);
+        log.info("建立连接完成,当前在线人数为：{}", webSocketSet.size());
+    }
+
+    /**
+     * 发生错误
+     *
+     * @param throwable e
+     */
+    @OnError
+    public void onError(Throwable throwable) {
+        throwable.printStackTrace();
+    }
+
+    /**
+     * 连接关闭
+     */
+    @OnClose
+    public void onClose() {
+        webSocketSet.remove(this);
+        log.info("连接断开,当前在线人数为：{}", webSocketSet.size());
+    }
+
+    /**
+     * 接收客户端消息
+     *
+     * @param message 接收的消息
+     */
+    @OnMessage
+    public void onMessage(String message) {
+        log.info("收到客户端发来的消息：{}", message);
+    }
+
+    /**
+     * 推送消息到指定用户
+     *
+     * @param userId  用户ID
+     * @param message 发送的消息
+     */
+    public static void sendMessageByUser(Integer userId, String message) {
+        log.info("用户ID：" + userId + ",推送内容：" + message);
+        Session session = sessionPool.get(userId);
+        try {
+            session.getBasicRemote().sendText(message);
+        } catch (IOException e) {
+            log.error("推送消息到指定用户发生错误：" + e.getMessage(), e);
         }
     }
 
-    // 关闭客户端连接
-    public void closeClientConnection(String clientId) {
-        Session session = clientSessions.get(clientId);
-        if (session != null && session.isOpen()) {
+    /**
+     * 群发消息
+     *
+     * @param message 发送的消息
+     */
+    public static void sendAllMessage(String message) {
+        log.info("发送消息：{}", message);
+        for (WebSocketServer webSocket : webSocketSet) {
             try {
-                session.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, "Closing connection"));
-            } catch (Exception e) {
-                e.printStackTrace();
+                webSocket.session.getBasicRemote().sendText(message);
+            } catch (IOException e) {
+                log.error("群发消息发生错误：" + e.getMessage(), e);
             }
         }
     }
 }
+

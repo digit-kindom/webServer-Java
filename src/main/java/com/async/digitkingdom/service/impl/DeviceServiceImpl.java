@@ -80,4 +80,10 @@ public class DeviceServiceImpl implements DeviceService {
         deviceMapper.update(updateDeviceDto);
         return Result.ok("修改设备信息成功!");
     }
+
+    @Override
+    public Result turnOnLight() {
+
+        return null;
+    }
 }

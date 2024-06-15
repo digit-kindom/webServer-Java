@@ -14,4 +14,6 @@ public interface DeviceService {
     Result deleteById(String deviceId);
 
     Result update(UpdateDeviceDto updateDeviceDto);
+
+    Result turnOnLight();
 }
