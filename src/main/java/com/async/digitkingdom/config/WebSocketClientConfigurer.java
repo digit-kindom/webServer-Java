@@ -16,7 +16,7 @@ public class WebSocketClientConfigurer {
     @Bean
     public WebSocketClient webSocketClient() {
         try {
-            MyWebSocketClient webSocketClient = new MyWebSocketClient(new URI("ws://127.0.0.1:8001/websocket/12/owner"));
+            MyWebSocketClient webSocketClient = new MyWebSocketClient(new URI(wsServerUrl));
             webSocketClient.connect();
             return webSocketClient;
         } catch (URISyntaxException e) {
