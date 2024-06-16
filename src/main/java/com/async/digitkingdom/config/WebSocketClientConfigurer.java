@@ -3,7 +3,7 @@ package com.async.digitkingdom.config;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.client.WebSocketClient;
+import org.java_websocket.client.WebSocketClient;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -16,14 +16,14 @@ public class WebSocketClientConfigurer {
     @Bean
     public WebSocketClient webSocketClient() {
         try {
-            MyWebSocketClient webSocketClient =
-                    new MyWebSocketClient(new URI(wsServerUrl));
+            MyWebSocketClient webSocketClient = new MyWebSocketClient(new URI("ws://127.0.0.1:8001/websocket/12/owner"));
             webSocketClient.connect();
-            return (WebSocketClient) webSocketClient;
+            return webSocketClient;
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
         return null;
     }
+
 
 }
