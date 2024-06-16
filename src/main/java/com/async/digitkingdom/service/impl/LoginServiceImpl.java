@@ -52,6 +52,7 @@ public class LoginServiceImpl implements LoginService {
         // 把token传回前端
         HashMap<String, String> map = new HashMap<>();
         map.put("token", jwt);
+        map.put("authorities", loginUser.getPermissions().toString());
         return Result.ok(map);
     }
 
