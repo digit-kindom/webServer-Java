@@ -50,6 +50,9 @@ public class DeviceServiceImpl implements DeviceService {
         LoginUser user = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = user.getUser().getId();
         Device device = deviceMapper.getByDeviceId(deviceId);
+        if(device == null){
+            return Result.error("输入了错误的设备id");
+        }
         if(!Objects.equals(device.getUserId(), userId)){
             return Result.error("没有权限访问当前设备！");
         }
@@ -61,6 +64,9 @@ public class DeviceServiceImpl implements DeviceService {
         LoginUser user = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = user.getUser().getId();
         Device device = deviceMapper.getByDeviceId(deviceId);
+        if(device == null){
+            return Result.error("输入了错误的设备id");
+        }
         if(!Objects.equals(device.getUserId(), userId)){
             return Result.error("没有权限访问当前设备！");
         }
@@ -73,6 +79,9 @@ public class DeviceServiceImpl implements DeviceService {
         LoginUser user = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = user.getUser().getId();
         Device device = deviceMapper.getByDeviceId(updateDeviceDto.getDeviceId());
+        if(device == null){
+            return Result.error("输入了错误的设备id");
+        }
         if(!Objects.equals(device.getUserId(), userId)){
             return Result.error("没有权限访问当前设备！");
         }
