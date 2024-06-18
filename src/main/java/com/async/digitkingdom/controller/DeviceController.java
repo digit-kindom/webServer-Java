@@ -1,9 +1,13 @@
 package com.async.digitkingdom.controller;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
+import com.async.digitkingdom.entity.Args;
 import com.async.digitkingdom.entity.Device;
 import com.async.digitkingdom.entity.LoginUser;
+import com.async.digitkingdom.entity.Payload;
 import com.async.digitkingdom.entity.dto.AddDeviceDto;
 import com.async.digitkingdom.entity.dto.TurnOnLightDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
@@ -63,16 +67,39 @@ public class DeviceController {
         LoginUser loginUser = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = loginUser.getUser().getId();
         TurnOnLightDto turnOnLightDto = new TurnOnLightDto();
-        webSocketClient.send(turnOnLightDto.toString());
+        System.out.println(turnOnLightDto.toString());
         Device byDeviceId = deviceMapper.getByDeviceId(deviceId);
         if(byDeviceId == null){
             return Result.error("传入了错误的id！");
         }
         UpdateDeviceDto updateDeviceDto = new UpdateDeviceDto();
+        turnOnLightDto.setCommand("device_command");
+        Args args = new Args();
+        args.setNode_id(5);
+        args.setEndpoint_id(1);
+        args.setCluster_id(8);;
+        Payload payload = new Payload();
+        payload.setLevel(100);
+        payload.setOptionsMask(0);
+        payload.setTransitionTime(0);
+        payload.setOptionsOverride(0);
+        args.setPayload(payload);
         if(byDeviceId.getDeviceStatus().equals("On")){
+            turnOnLightDto.setMessage_id(UUID.randomUUID().toString());
+            args.setCommand_name("Off");
+            turnOnLightDto.setArgs(args);
+            JSONObject jsonObject = (JSONObject) JSON.toJSON(turnOnLightDto);
+            String json = jsonObject.toString();
+            webSocketClient.send(json);
             operationHistoryMapper.insert("Off",userId,deviceId, LocalDateTime.now(), UUID.randomUUID().toString());
             updateDeviceDto.setDeviceStatus("Off");
         }else {
+            turnOnLightDto.setMessage_id(UUID.randomUUID().toString());
+            args.setCommand_name("On");
+            turnOnLightDto.setArgs(args);
+            JSONObject jsonObject = (JSONObject) JSON.toJSON(turnOnLightDto);
+            String json = jsonObject.toString();
+            webSocketClient.send(json);
             operationHistoryMapper.insert("On",userId,deviceId, LocalDateTime.now(), UUID.randomUUID().toString());
             updateDeviceDto.setDeviceStatus("On");
         }
