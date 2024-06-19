@@ -11,7 +11,7 @@ import java.net.URISyntaxException;
 @Component
 public class WebSocketClientConfigurer {
 
-    private final String wsServerUrl = "ws://127.0.0.1:5580/ws";
+    private final String wsServerUrl = "ws://192.168.118.177:5580/ws";
 
     @Bean
     public WebSocketClient webSocketClient() {

@@ -67,7 +67,6 @@ public class DeviceController {
         LoginUser loginUser = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = loginUser.getUser().getId();
         TurnOnLightDto turnOnLightDto = new TurnOnLightDto();
-        System.out.println(turnOnLightDto.toString());
         Device byDeviceId = deviceMapper.getByDeviceId(deviceId);
         if(byDeviceId == null){
             return Result.error("传入了错误的id！");
@@ -75,15 +74,15 @@ public class DeviceController {
         UpdateDeviceDto updateDeviceDto = new UpdateDeviceDto();
         turnOnLightDto.setCommand("device_command");
         Args args = new Args();
-        args.setNode_id(5);
-        args.setEndpoint_id(1);
-        args.setCluster_id(8);;
-        Payload payload = new Payload();
-        payload.setLevel(100);
-        payload.setOptionsMask(0);
-        payload.setTransitionTime(0);
-        payload.setOptionsOverride(0);
-        args.setPayload(payload);
+        args.setNode_id(byDeviceId.getNode_id());
+        args.setEndpoint_id(byDeviceId.getEndpoint_id());
+        args.setCluster_id(byDeviceId.getCluster_id());
+//        Payload payload = new Payload();
+//        payload.setLevel(100);
+//        payload.setOptionsMask(0);
+//        payload.setTransitionTime(0);
+//        payload.setOptionsOverride(0);
+//        args.setPayload(payload);
         if(byDeviceId.getDeviceStatus().equals("On")){
             turnOnLightDto.setMessage_id(UUID.randomUUID().toString());
             args.setCommand_name("Off");
