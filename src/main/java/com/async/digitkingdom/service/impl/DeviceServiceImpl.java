@@ -4,6 +4,7 @@ import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.entity.Device;
 import com.async.digitkingdom.entity.LoginUser;
 import com.async.digitkingdom.entity.User;
+import com.async.digitkingdom.entity.dto.AdjustLightDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
 import com.async.digitkingdom.mapper.DeviceMapper;
 import com.async.digitkingdom.service.DeviceService;
@@ -92,6 +93,12 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     public Result turnOnLight() {
+
+        return null;
+    }
+
+    @Override
+    public Result adjustLight(AdjustLightDto adjustLightDto) {
 
         return null;
     }

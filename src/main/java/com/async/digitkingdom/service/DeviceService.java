@@ -2,6 +2,7 @@ package com.async.digitkingdom.service;
 
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.entity.Device;
+import com.async.digitkingdom.entity.dto.AdjustLightDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
 
 public interface DeviceService {
@@ -16,4 +17,6 @@ public interface DeviceService {
     Result update(UpdateDeviceDto updateDeviceDto);
 
     Result turnOnLight();
+
+    Result adjustLight(AdjustLightDto adjustLightDto);
 }

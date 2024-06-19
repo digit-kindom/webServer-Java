@@ -9,6 +9,7 @@ import com.async.digitkingdom.entity.Device;
 import com.async.digitkingdom.entity.LoginUser;
 import com.async.digitkingdom.entity.Payload;
 import com.async.digitkingdom.entity.dto.AddDeviceDto;
+import com.async.digitkingdom.entity.dto.AdjustLightDto;
 import com.async.digitkingdom.entity.dto.TurnOnLightDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
 import com.async.digitkingdom.mapper.DeviceMapper;
@@ -76,7 +77,7 @@ public class DeviceController {
         Args args = new Args();
         args.setNode_id(byDeviceId.getNode_id());
         args.setEndpoint_id(byDeviceId.getEndpoint_id());
-        args.setCluster_id(byDeviceId.getCluster_id());
+        args.setCluster_id(8);
 //        Payload payload = new Payload();
 //        payload.setLevel(100);
 //        payload.setOptionsMask(0);
@@ -104,5 +105,35 @@ public class DeviceController {
         }
         deviceMapper.update(updateDeviceDto);
         return Result.ok("完成操作！");
+    }
+
+    @PostMapping("/adjustLight")
+    public Result adjustLight(@RequestBody AdjustLightDto adjustLightDto){
+        LoginUser loginUser = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Integer userId = loginUser.getUser().getId();
+        Device byDeviceId = deviceMapper.getByDeviceId(adjustLightDto.getDeviceId());
+        if(byDeviceId == null){
+            return Result.error("传入了错误的id！");
+        }
+        if(!byDeviceId.getUserId().equals(userId)){
+            return Result.error("没有操控该设备的权限！");
+        }
+        adjustLightDto.setCommand("device_command");
+        adjustLightDto.setMessage_id(UUID.randomUUID().toString());
+        Args args = new Args();
+        args.setNode_id(byDeviceId.getNode_id());
+        args.setEndpoint_id(byDeviceId.getEndpoint_id());
+        args.setCluster_id(8);
+        args.setCommand_name("MoveToLevelWithOnOff");
+        Payload payload = new Payload();
+        payload.setLevel(adjustLightDto.getLevel());
+        payload.setOptionsMask(adjustLightDto.getOptionsMask());
+        payload.setTransitionTime(adjustLightDto.getTransitionTime());
+        payload.setOptionsOverride(adjustLightDto.getOptionsOverride());
+        args.setPayload(payload);
+        JSONObject jsonObject = (JSONObject) JSON.toJSON(adjustLightDto);
+        String json = jsonObject.toString();
+        webSocketClient.send(json);
+        return Result.ok("调整亮度成功！");
     }
 }
