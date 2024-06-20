@@ -3,7 +3,6 @@ package com.async.digitkingdom.service.impl;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.entity.Device;
 import com.async.digitkingdom.entity.LoginUser;
-import com.async.digitkingdom.entity.User;
 import com.async.digitkingdom.entity.dto.AdjustLightDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
 import com.async.digitkingdom.mapper.DeviceMapper;
