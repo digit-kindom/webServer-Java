@@ -2,6 +2,8 @@ package com.async.digitkingdom.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.async.digitkingdom.common.ClusterConst;
+import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
 import com.async.digitkingdom.entity.Args;
@@ -12,6 +14,7 @@ import com.async.digitkingdom.entity.dto.AddDeviceDto;
 import com.async.digitkingdom.entity.dto.AdjustLightDto;
 import com.async.digitkingdom.entity.dto.TurnOnLightDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
+import com.async.digitkingdom.mapper.DeviceClusterMapper;
 import com.async.digitkingdom.mapper.DeviceMapper;
 import com.async.digitkingdom.mapper.OperationHistoryMapper;
 import com.async.digitkingdom.service.DeviceService;
@@ -23,6 +26,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 
 @RestController
@@ -37,6 +43,8 @@ public class DeviceController {
     private DeviceMapper deviceMapper;
     @Autowired
     private OperationHistoryMapper operationHistoryMapper;
+    @Autowired
+    private DeviceClusterMapper deviceClusterMapper;
 
     @PostMapping("/add")
     public Result addDevice(@RequestBody AddDeviceDto addDeviceDto) {
@@ -45,6 +53,14 @@ public class DeviceController {
         log.info("已添加设备{}", JSON.toJSONString(device));
         return deviceService.addDevice(device);
     }
+
+//    @PostMapping("/add")
+//    public Result addDevice(@RequestBody AddDeviceDto addDeviceDto) {
+//        Device device = new Device();
+//        BeanUtils.copyProperties(addDeviceDto, device);
+//        log.info("已添加设备{}", JSON.toJSONString(device));
+//        return deviceService.addDevice(device);
+//    }
 
     @GetMapping("/list/{pageNum}/{pageSize}")
     public Result selectByPage(@PathVariable int pageNum, @PathVariable int pageSize) {
@@ -144,5 +160,46 @@ public class DeviceController {
         log.info(json);
         webSocketClient.send(json);
         return Result.ok("调整亮度成功！");
+    }
+
+    @PostMapping("/detectCluster")
+    public Result detectCluster(@RequestBody Object object){
+        String deviceId = "3fcd84e5-5acf-4808-aac4-bd9cd3893a72";
+        LinkedHashMap json = (LinkedHashMap) object;
+        LinkedHashMap result = (LinkedHashMap) json.get("result");
+        LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
+        Iterator it = attribute.entrySet().iterator();
+        while(it.hasNext()){
+            String next = it.next().toString();
+            String[] split = next.split("/");
+            if(split.length == 3){
+                int endpoint = Integer.parseInt(split[0]);
+                int clusterId = Integer.parseInt(split[1]);
+                if(ClusterConst.clusterConstMap.containsKey(clusterId)){
+                    deviceClusterMapper.addDeviceCluster(clusterId,endpoint,deviceId);
+                }
+            }
+            System.out.println(it.next());
+        }
+        return Result.ok("Cluster扫描完成");
+    }
+
+    @PostMapping("/detectDeviceType")
+    public Result detectDeviceType(@RequestBody Object object){
+        LinkedHashMap json = (LinkedHashMap) object;
+        LinkedHashMap result = (LinkedHashMap) ((ArrayList) json.get("result")).get(0);
+        Integer DT = (Integer) result.get("DT");
+        if(DT == null){
+            return Result.error("设备类别为空");
+        }
+        if(!DeviceTypeConst.deviceConstMap.containsKey(DT)){
+            return Result.error("不支持的设备！");
+        }
+        UpdateDeviceDto updateDeviceDto = new UpdateDeviceDto();
+        updateDeviceDto.setDeviceType(DT);
+        // TODO
+//        updateDeviceDto.setDeviceId();
+        deviceMapper.update(updateDeviceDto);
+        return Result.ok("更正设备类型为：" + DT);
     }
 }

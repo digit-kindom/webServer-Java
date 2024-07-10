@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public class UpdateDeviceDto {
     private String deviceId;
     private String deviceName;
-    private String deviceType;
+    private Integer deviceType;
     private String deviceManufacturer;
     private String deviceStatus;
     private String location;
