@@ -10,7 +10,7 @@ public class Device {
     private String deviceId;
     private Integer userId;
     private String deviceName;
-    private String deviceType;
+    private Integer deviceType;
     private String deviceModel;
     private String deviceManufacturer;
     private String deviceStatus;

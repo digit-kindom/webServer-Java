@@ -6,7 +6,8 @@ import com.async.digitkingdom.entity.dto.AdjustLightDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
 
 public interface DeviceService {
-    Result addDevice(Device device);
+//    Result addDevice(Device device);
+    Result addDevice(Object object);
 
     Result selectByPage(int pageNum, int pageSize);
 

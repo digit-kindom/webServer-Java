@@ -7,8 +7,10 @@ public class DeviceTypeConst {
     public static final Map<Integer, String> deviceConstMap = new HashMap<Integer, String>();
     static {
         deviceConstMap.put(0x0104,"Dimmer Switch");
+        deviceConstMap.put(0x010B,"On/Off Plugin");
         deviceConstMap.put(0x0105,"Color Dimmer Switch");
         deviceConstMap.put(0x000F,"Generic Switch");
         deviceConstMap.put(0x0106,"Light Sensor");
+        deviceConstMap.put(0x0000,"None");
     }
 }

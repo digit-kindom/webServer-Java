@@ -1,36 +1,76 @@
 package com.async.digitkingdom.service.impl;
 
+import com.alibaba.fastjson.JSONObject;
+import com.async.digitkingdom.common.ClusterConst;
+import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.entity.Device;
 import com.async.digitkingdom.entity.LoginUser;
 import com.async.digitkingdom.entity.dto.AdjustLightDto;
+import com.async.digitkingdom.entity.dto.SubscribeToEventDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
+import com.async.digitkingdom.mapper.DeviceClusterMapper;
 import com.async.digitkingdom.mapper.DeviceMapper;
 import com.async.digitkingdom.service.DeviceService;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import org.java_websocket.client.WebSocketClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class DeviceServiceImpl implements DeviceService {
     @Resource
     private DeviceMapper deviceMapper;
+    @Resource
+    private DeviceClusterMapper deviceClusterMapper;
+    @Autowired
+    private WebSocketClient webSocketClient;
+
+//    @Override
+//    public Result addDevice(Device device) {
+//        device.setCreateDate(LocalDate.now());
+//        LoginUser user = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+//        device.setUserId(user.getUser().getId());
+//        device.setDeviceId(UUID.randomUUID().toString());
+//        deviceMapper.insert(device);
+//        return Result.ok("添加设备成功！");
+//    }
 
     @Override
-    public Result addDevice(Device device) {
+    @Transactional
+    public Result addDevice(Object object) {
+        String deviceId = UUID.randomUUID().toString();
+        Device device = detectDeviceJson(object, deviceId);
+        if(device.getDeviceType() == null){
+            return Result.error("未检测到设备类型或不支持的设备类型");
+        }
         device.setCreateDate(LocalDate.now());
         LoginUser user = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         device.setUserId(user.getUser().getId());
-        device.setDeviceId(UUID.randomUUID().toString());
+        device.setDeviceId(deviceId);
+        device.setDeviceName(DeviceTypeConst.deviceConstMap.get(device.getDeviceType()));
         deviceMapper.insert(device);
+
+//        //订阅消息
+//        SubscribeToEventDto subcribeToEventDto = new SubscribeToEventDto();
+//        subcribeToEventDto.setId(device.getNodeId());
+//        subcribeToEventDto.setEvent_type("subscribe_events");
+//        JSONObject json = (JSONObject) JSONObject.toJSON(subcribeToEventDto);
+//        webSocketClient.send(String.valueOf(json));
+
+//        while((message = webSocketClient.)==null){
+//            System.out.println("服务忙等待...");
+//            Thread.sleep(1000);
+//        }
+
         return Result.ok("添加设备成功！");
     }
 
@@ -100,5 +140,85 @@ public class DeviceServiceImpl implements DeviceService {
     public Result adjustLight(AdjustLightDto adjustLightDto) {
 
         return null;
+    }
+
+//    public Result detectCluster(Object object, String deviceId) {
+////        String deviceId = "3fcd84e5-5acf-4808-aac4-bd9cd3893a72";
+//        LinkedHashMap json = (LinkedHashMap) object;
+//        LinkedHashMap result = (LinkedHashMap) json.get("result");
+//        LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
+//        Iterator it = attribute.entrySet().iterator();
+//        while (it.hasNext()) {
+//            String next = it.next().toString();
+//            String[] split = next.split("/");
+//            if (split.length == 3) {
+//                int endpoint = Integer.parseInt(split[0]);
+//                int clusterId = Integer.parseInt(split[1]);
+//                if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
+//                    deviceClusterMapper.addDeviceCluster(clusterId, endpoint, deviceId);
+//                }
+//            }
+//            System.out.println(it.next());
+//        }
+//        return Result.ok("Cluster扫描完成");
+//    }
+//
+//    public Integer detectDeviceType(Object object, String deviceId) {
+//        LinkedHashMap json = (LinkedHashMap) object;
+//        LinkedHashMap result = (LinkedHashMap) ((ArrayList) json.get("result")).get(0);
+//        Integer DT = (Integer) result.get("DT");
+//        if (DT == null) {
+//            return null;
+//        }
+//        if (!DeviceTypeConst.deviceConstMap.containsKey(DT)) {
+//            return null;
+//        }
+//        UpdateDeviceDto updateDeviceDto = new UpdateDeviceDto();
+//        updateDeviceDto.setDeviceType(DT);
+//        updateDeviceDto.setDeviceId(deviceId);
+//        deviceMapper.update(updateDeviceDto);
+//        return DT;
+//    }
+
+    public Device detectDeviceJson(Object object, String deviceId) {
+        Device device = new Device();
+        LinkedHashMap json = (LinkedHashMap) object;
+        LinkedHashMap result = (LinkedHashMap) json.get("result");
+        // nodeId 获取
+        Integer nodeId = (Integer) result.get("node_id");
+        // cluster endpoint 检测
+//        LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
+//        Iterator it = attribute.entrySet().iterator();
+//        while (it.hasNext()) {
+//            String next = it.next().toString();
+//            String[] split = next.split("/");
+//            if (split.length == 3) {
+//                int endpoint = Integer.parseInt(split[0]);
+//                int clusterId = Integer.parseInt(split[1]);
+//                if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
+//                    deviceClusterMapper.addDeviceCluster(clusterId, endpoint, deviceId);
+//                }
+//            }
+//        }
+
+        // DeviceType 检测
+        String DTstr = (String) json.get("DT");
+        String[] split = DTstr.split("x");
+        Integer DT = null;
+        if(split.length == 2){
+            DT = Integer.parseInt(split[1],16);
+        }else {
+            DT = Integer.parseInt(DTstr);
+        }
+
+        if (DT == null) {
+            return null;
+        }
+        if (!DeviceTypeConst.deviceConstMap.containsKey(DT)) {
+            return null;
+        }
+        device.setNodeId(nodeId);
+        device.setDeviceType(DT);
+       return device;
     }
 }

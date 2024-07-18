@@ -5,31 +5,27 @@ import com.alibaba.fastjson.JSONObject;
 import com.async.digitkingdom.common.ClusterConst;
 import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
-import com.async.digitkingdom.common.utils.MyWebSocketClient;
-import com.async.digitkingdom.entity.Args;
-import com.async.digitkingdom.entity.Device;
-import com.async.digitkingdom.entity.LoginUser;
-import com.async.digitkingdom.entity.Payload;
-import com.async.digitkingdom.entity.dto.AddDeviceDto;
-import com.async.digitkingdom.entity.dto.AdjustLightDto;
-import com.async.digitkingdom.entity.dto.TurnOnLightDto;
-import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
+import com.async.digitkingdom.common.utils.MessageProcessor;
+import com.async.digitkingdom.entity.*;
+import com.async.digitkingdom.entity.dto.*;
 import com.async.digitkingdom.mapper.DeviceClusterMapper;
 import com.async.digitkingdom.mapper.DeviceMapper;
 import com.async.digitkingdom.mapper.OperationHistoryMapper;
 import com.async.digitkingdom.service.DeviceService;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import org.java_websocket.client.WebSocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.UUID;
+import java.io.IOException;
+import java.util.*;
 
 @RestController
 @RequestMapping("/device")
@@ -38,20 +34,32 @@ public class DeviceController {
     @Resource
     private DeviceService deviceService;
     @Resource
-    private MyWebSocketClient webSocketClient;
+    private WebSocketClient webSocketClient;
+    @Autowired
+    private WebSocketClient webSocketClient2;
     @Autowired
     private DeviceMapper deviceMapper;
     @Autowired
     private OperationHistoryMapper operationHistoryMapper;
     @Autowired
     private DeviceClusterMapper deviceClusterMapper;
+    @Autowired
+    private MessageProcessor messageProcessor;
+
+//    @PostMapping("/add")
+//    public Result addDevice(@RequestBody AddDeviceDto addDeviceDto) {
+//        Device device = new Device();
+//        BeanUtils.copyProperties(addDeviceDto, device);
+//        log.info("已添加设备{}", JSON.toJSONString(device));
+//        return deviceService.addDevice(device);
+//    }
 
     @PostMapping("/add")
-    public Result addDevice(@RequestBody AddDeviceDto addDeviceDto) {
-        Device device = new Device();
-        BeanUtils.copyProperties(addDeviceDto, device);
-        log.info("已添加设备{}", JSON.toJSONString(device));
-        return deviceService.addDevice(device);
+    public Result addDevice(@RequestBody Object object) {
+//        Device device = new Device();
+//        BeanUtils.copyProperties(addDeviceDto, device);
+//        log.info("已添加设备{}", JSON.toJSONString(device));
+        return deviceService.addDevice(object);
     }
 
 //    @PostMapping("/add")
@@ -83,12 +91,12 @@ public class DeviceController {
     }
 
     @PostMapping("/lightOperation/{deviceId}")
-    public Result lightOperation(@PathVariable String deviceId){
+    public Result lightOperation(@PathVariable String deviceId) {
         LoginUser loginUser = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = loginUser.getUser().getId();
         TurnOnLightDto turnOnLightDto = new TurnOnLightDto();
         Device byDeviceId = deviceMapper.getByDeviceId(deviceId);
-        if(byDeviceId == null){
+        if (byDeviceId == null) {
             return Result.error("传入了错误的id！");
         }
         UpdateDeviceDto updateDeviceDto = new UpdateDeviceDto();
@@ -104,7 +112,7 @@ public class DeviceController {
         payload.setOptionsOverride(0);
         args.setPayload(payload);
         String deviceStatus = byDeviceId.getDeviceStatus();
-        if(byDeviceId.getDeviceStatus().equals("On")){
+        if (byDeviceId.getDeviceStatus().equals("On")) {
             String massageId = UUID.randomUUID().toString();
             turnOnLightDto.setMessageId(massageId);
             args.setCommand_name("Off");
@@ -113,8 +121,8 @@ public class DeviceController {
             String json = jsonObject.toString();
             webSocketClient.send(json);
 //            operationHistoryMapper.insert("Off",userId,deviceId, LocalDateTime.now(), UUID.randomUUID().toString());
-            deviceMapper.updateStatus(deviceId,"Off");
-        }else {
+            deviceMapper.updateStatus(deviceId, "Off");
+        } else {
             String massageId = UUID.randomUUID().toString();
             turnOnLightDto.setMessageId(massageId);
             args.setCommand_name("On");
@@ -125,21 +133,25 @@ public class DeviceController {
             webSocketClient.send(json);
             String operationId = UUID.randomUUID().toString();
 //            operationHistoryMapper.insert("On",userId,deviceId, LocalDateTime.now(), operationId);
-            deviceMapper.updateStatus(deviceId,"On");
+            deviceMapper.updateStatus(deviceId, "On");
         }
         return Result.ok("完成操作！");
     }
 
     @PostMapping("/adjustLight")
-    public Result adjustLight(@RequestBody AdjustLightDto adjustLightDto){
+    public Result adjustLight(@RequestBody AdjustLightDto adjustLightDto) {
         LoginUser loginUser = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = loginUser.getUser().getId();
         Device byDeviceId = deviceMapper.getByDeviceId(adjustLightDto.getDeviceId());
-        if(byDeviceId == null){
+        if (byDeviceId == null) {
             return Result.error("传入了错误的id！");
         }
-        if(!byDeviceId.getUserId().equals(userId)){
+        if (!byDeviceId.getUserId().equals(userId)) {
             return Result.error("没有操控该设备的权限！");
+        }
+        List<Integer> deviceClusters = deviceClusterMapper.getAllClusterByDeviceId(adjustLightDto.getDeviceId());
+        if(!deviceClusters.contains(8)){
+            return Result.error("该设备不支持此操作");
         }
         adjustLightDto.setCommand("device_command");
         adjustLightDto.setMessage_id(UUID.randomUUID().toString());
@@ -163,20 +175,22 @@ public class DeviceController {
     }
 
     @PostMapping("/detectCluster")
-    public Result detectCluster(@RequestBody Object object){
+    public Result detectCluster(@RequestBody Object object) {
         String deviceId = "3fcd84e5-5acf-4808-aac4-bd9cd3893a72";
         LinkedHashMap json = (LinkedHashMap) object;
         LinkedHashMap result = (LinkedHashMap) json.get("result");
         LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
         Iterator it = attribute.entrySet().iterator();
-        while(it.hasNext()){
+        HashSet<Integer> set = new HashSet<Integer>();
+        while (it.hasNext()) {
             String next = it.next().toString();
             String[] split = next.split("/");
-            if(split.length == 3){
+            if (split.length == 3) {
                 int endpoint = Integer.parseInt(split[0]);
                 int clusterId = Integer.parseInt(split[1]);
-                if(ClusterConst.clusterConstMap.containsKey(clusterId)){
-                    deviceClusterMapper.addDeviceCluster(clusterId,endpoint,deviceId);
+                if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
+                    set.add(clusterId);
+                    deviceClusterMapper.addDeviceCluster(clusterId, endpoint, deviceId);
                 }
             }
             System.out.println(it.next());
@@ -185,14 +199,14 @@ public class DeviceController {
     }
 
     @PostMapping("/detectDeviceType")
-    public Result detectDeviceType(@RequestBody Object object){
+    public Result detectDeviceType(@RequestBody Object object) {
         LinkedHashMap json = (LinkedHashMap) object;
         LinkedHashMap result = (LinkedHashMap) ((ArrayList) json.get("result")).get(0);
         Integer DT = (Integer) result.get("DT");
-        if(DT == null){
+        if (DT == null) {
             return Result.error("设备类别为空");
         }
-        if(!DeviceTypeConst.deviceConstMap.containsKey(DT)){
+        if (!DeviceTypeConst.deviceConstMap.containsKey(DT)) {
             return Result.error("不支持的设备！");
         }
         UpdateDeviceDto updateDeviceDto = new UpdateDeviceDto();
@@ -202,4 +216,191 @@ public class DeviceController {
         deviceMapper.update(updateDeviceDto);
         return Result.ok("更正设备类型为：" + DT);
     }
+
+//    @GetMapping("/status/{deviceId}")
+//    public Result getSingleDeviceStatus(@PathVariable String deviceId) {
+//        LoginUser loginUser = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+//        Integer userId = loginUser.getUser().getId();
+//        Device device = deviceMapper.getByDeviceId(deviceId);
+//        if (device == null) {
+//            return Result.error("输入了错误的设备id");
+//        }
+//        if(!device.getUserId().equals(loginUser.getUser().getId())){
+//            return Result.error("没有操作权限");
+//        }
+//
+//    }
+    public Result generateQRCode(String deviceId) {
+        long id = System.currentTimeMillis() - 656446;
+        String token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjODVjMjc1ODRkYjM0MjkxYWQxNWU5NjNjNDhmNmRhMiIsImlhdCI6MTcyMDU5NzAyNywiZXhwIjoyMDM1OTU3MDI3fQ.jpqE7WwUoD1bqeT9W7Tx4qvjREgBso61dzmr7UlYpLg";
+        AuthDto authDto = new AuthDto("auth", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjODVjMjc1ODRkYjM0MjkxYWQxNWU5NjNjNDhmNmRhMiIsImlhdCI6MTcyMDU5NzAyNywiZXhwIjoyMDM1OTU3MDI3fQ.jpqE7WwUoD1bqeT9W7Tx4qvjREgBso61dzmr7UlYpLg");
+        JSONObject jsonObject = (JSONObject) JSON.toJSON(authDto);
+        String json = jsonObject.toString();
+        webSocketClient2.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        String latestMessage = messageProcessor.getLatestMessage();
+        JSONObject jsonObject1 = JSONObject.parseObject(latestMessage);
+        String status = (String) jsonObject1.get("type");
+        if (!status.equals("auth_ok")) {
+            return Result.error("验证失败！");
+        }
+
+        PersistentNotificationDto persistentNotificationDto = new PersistentNotificationDto("persistent_notification/subscribe", id);
+        jsonObject = (JSONObject) JSON.toJSON(persistentNotificationDto);
+        json = jsonObject.toString();
+        webSocketClient2.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        latestMessage = messageProcessor.getLatestMessage();
+        id++;
+
+        ManifestDto manifestDto = new ManifestDto("manifest/get", "homekit", id);
+        jsonObject = (JSONObject) JSON.toJSON(manifestDto);
+        json = jsonObject.toString();
+        webSocketClient2.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        latestMessage = messageProcessor.getLatestMessage();
+        id++;
+
+        List integration = new ArrayList<>();
+        integration.add("homekit");
+        FrontendDto frontendDto = new FrontendDto("frontend/get_translations", "zh-Hans", "config", integration, id);
+        jsonObject = (JSONObject) JSON.toJSON(frontendDto);
+        json = jsonObject.toString();
+        webSocketClient2.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        latestMessage = messageProcessor.getLatestMessage();
+        id++;
+
+        frontendDto.setCategory("selector");
+        frontendDto.setId(id);
+        jsonObject = (JSONObject) JSON.toJSON(frontendDto);
+        json = jsonObject.toString();
+        webSocketClient2.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        latestMessage = messageProcessor.getLatestMessage();
+        id++;
+
+
+        HandlerDto handlerDto = new HandlerDto("homekit", false);
+        jsonObject = (JSONObject) JSON.toJSON(handlerDto);
+        json = jsonObject.toString();
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), json);
+
+        OkHttpClient client = new OkHttpClient();
+        // Creating the request
+        Request request = new Request.Builder()
+                .url("http://192.168.2.131:8123/api/config/config_entries/flow")
+                .post(body)
+                .addHeader("Authorization", "Bearer " + token)
+                .build();
+
+        // Making the request and getting the response
+        String flowId = null;
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+
+            // Printing the response
+//            System.out.println(response.body().string());
+            String string = response.body().string();
+            JSONObject jsonObject2 = JSONObject.parseObject(string);
+            flowId = (String) jsonObject2.get("flow_id");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        IncludeDomainDto includeDomainDto = new IncludeDomainDto();
+        List include_domains = new ArrayList<>();
+        include_domains.add("alarm_control_panel");
+        include_domains.add("climate");
+        include_domains.add("camera");
+        include_domains.add("cover");
+        include_domains.add("humidifier");
+        include_domains.add("fan");
+        include_domains.add("light");
+        include_domains.add("lock");
+        include_domains.add("media_player");
+        include_domains.add("remote");
+        include_domains.add("switch");
+        include_domains.add("vacuum");
+        include_domains.add("water_heater");
+
+        jsonObject = (JSONObject) JSON.toJSON(includeDomainDto);
+        json = jsonObject.toString();
+        body = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), json);
+        Request request2 = new Request.Builder()
+                .url("http://192.168.2.131:8123/api/config/config_entries/flow/" + flowId)
+                .post(body)
+                .addHeader("Authorization", "Bearer " + token)
+                .build();
+
+        // Making the request and getting the response
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+
+            // Printing the response
+            System.out.println(response.body().string());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        PersistentNotificationDto persistentNotificationDto1 = new PersistentNotificationDto("config/device_registry/list", id);
+        jsonObject = (JSONObject) JSON.toJSON(persistentNotificationDto1);
+        json = jsonObject.toString();
+        webSocketClient2.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        latestMessage = messageProcessor.getLatestMessage();
+
+        body = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), "{}");
+        Request request3 = new Request.Builder()
+                .url("http://192.168.2.131:8123/api/config/config_entries/flow/" + flowId)
+                .post(body)
+                .addHeader("Authorization", "Bearer " + token)
+                .build();
+
+        // Making the request and getting the response
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+
+            // Printing the response
+            System.out.println(response.body().string());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            Thread.sleep(40000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        latestMessage = messageProcessor.getLatestMessage();
+
+
+        return null;
+    }
 }
+
