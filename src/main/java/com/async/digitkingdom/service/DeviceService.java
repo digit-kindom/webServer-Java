@@ -20,4 +20,6 @@ public interface DeviceService {
     Result turnOnLight();
 
     Result adjustLight(AdjustLightDto adjustLightDto);
+
+    Result receiveImageFromCamera(int frameSize);
 }

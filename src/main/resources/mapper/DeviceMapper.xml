@@ -3,10 +3,10 @@
 <mapper namespace="com.async.digitkingdom.mapper.DeviceMapper">
 
     <insert id="insert">
-        insert into device.device (device_id, device_name, device_manufacturer, device_status, create_date, device_type, user_id, location,cluster_id,node_id,endpoint_id)
+        insert into device.device (device_id, device_name, device_manufacturer, device_status, create_date, device_type, user_id, location,cluster_id,node_id,endpoint_id,qrcode)
         values
         (#{device.deviceId},#{device.deviceName},#{device.deviceManufacturer},'Off',#{device.createDate},#{device.deviceType},
-         #{device.userId},#{device.location},#{device.cluster_id},#{device.node_id},#{device.endpoint_id})
+         #{device.userId},#{device.location},#{device.cluster_id},#{device.node_id},#{device.endpoint_id},#{device.qrcode})
     </insert>
     <update id="update">
         update device.device

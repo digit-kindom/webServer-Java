@@ -1,20 +1,17 @@
 package com.async.digitkingdom.service.impl;
 
-import com.alibaba.fastjson.JSONObject;
-import com.async.digitkingdom.common.ClusterConst;
 import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
+import com.async.digitkingdom.common.utils.MyWebSocketClient;
 import com.async.digitkingdom.entity.Device;
 import com.async.digitkingdom.entity.LoginUser;
 import com.async.digitkingdom.entity.dto.AdjustLightDto;
-import com.async.digitkingdom.entity.dto.SubscribeToEventDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
 import com.async.digitkingdom.mapper.DeviceClusterMapper;
 import com.async.digitkingdom.mapper.DeviceMapper;
 import com.async.digitkingdom.service.DeviceService;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import org.java_websocket.client.WebSocketClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -32,7 +29,7 @@ public class DeviceServiceImpl implements DeviceService {
     @Resource
     private DeviceClusterMapper deviceClusterMapper;
     @Autowired
-    private WebSocketClient webSocketClient;
+    private Map<String, MyWebSocketClient> websocketRunClientMap;
 
 //    @Override
 //    public Result addDevice(Device device) {
@@ -142,6 +139,11 @@ public class DeviceServiceImpl implements DeviceService {
         return null;
     }
 
+    @Override
+    public Result receiveImageFromCamera(int frameSize) {
+        return null;
+    }
+
 //    public Result detectCluster(Object object, String deviceId) {
 ////        String deviceId = "3fcd84e5-5acf-4808-aac4-bd9cd3893a72";
 //        LinkedHashMap json = (LinkedHashMap) object;
@@ -185,7 +187,9 @@ public class DeviceServiceImpl implements DeviceService {
         LinkedHashMap json = (LinkedHashMap) object;
         LinkedHashMap result = (LinkedHashMap) json.get("result");
         // nodeId 获取
-        Integer nodeId = (Integer) result.get("node_id");
+        Integer nodeId = (Integer) json.get("node_id");
+        // qrcode 获取
+        String qrcode = (String) json.get("qrcode");
         // cluster endpoint 检测
 //        LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
 //        Iterator it = attribute.entrySet().iterator();
@@ -203,13 +207,15 @@ public class DeviceServiceImpl implements DeviceService {
 
         // DeviceType 检测
         String DTstr = (String) json.get("DT");
-        String[] split = DTstr.split("x");
+//        String[] split = DTstr.split("x");
         Integer DT = null;
-        if(split.length == 2){
-            DT = Integer.parseInt(split[1],16);
-        }else {
-            DT = Integer.parseInt(DTstr);
-        }
+        DT = Integer.parseInt(DTstr);
+//        int i = Integer.parseInt(DTstr, 16);
+//        if(split.length == 2){
+//            DT = Integer.parseInt(split[1],16);
+//        }else {
+//            DT = Integer.parseInt(DTstr);
+//        }
 
         if (DT == null) {
             return null;
@@ -217,8 +223,13 @@ public class DeviceServiceImpl implements DeviceService {
         if (!DeviceTypeConst.deviceConstMap.containsKey(DT)) {
             return null;
         }
+        if (qrcode == null || qrcode.length() == 0) {
+            return null;
+        }
+
+        device.setQrcode(qrcode);
         device.setNodeId(nodeId);
         device.setDeviceType(DT);
-       return device;
+        return device;
     }
 }

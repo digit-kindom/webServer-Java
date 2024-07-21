@@ -6,6 +6,8 @@ import com.async.digitkingdom.common.ClusterConst;
 import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.common.utils.MessageProcessor;
+import com.async.digitkingdom.common.utils.MyWebSocketClient;
+import com.async.digitkingdom.common.utils.RedisCache;
 import com.async.digitkingdom.entity.*;
 import com.async.digitkingdom.entity.dto.*;
 import com.async.digitkingdom.mapper.DeviceClusterMapper;
@@ -24,7 +26,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
 
 @RestController
@@ -33,10 +41,8 @@ public class DeviceController {
     private static final Logger log = LoggerFactory.getLogger(DeviceController.class);
     @Resource
     private DeviceService deviceService;
-    @Resource
-    private WebSocketClient webSocketClient;
     @Autowired
-    private WebSocketClient webSocketClient2;
+    private Map<String, MyWebSocketClient> websocketRunClientMap;
     @Autowired
     private DeviceMapper deviceMapper;
     @Autowired
@@ -45,6 +51,8 @@ public class DeviceController {
     private DeviceClusterMapper deviceClusterMapper;
     @Autowired
     private MessageProcessor messageProcessor;
+    @Resource
+    private RedisCache redisCache;
 
 //    @PostMapping("/add")
 //    public Result addDevice(@RequestBody AddDeviceDto addDeviceDto) {
@@ -92,6 +100,7 @@ public class DeviceController {
 
     @PostMapping("/lightOperation/{deviceId}")
     public Result lightOperation(@PathVariable String deviceId) {
+        MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
         LoginUser loginUser = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = loginUser.getUser().getId();
         TurnOnLightDto turnOnLightDto = new TurnOnLightDto();
@@ -140,6 +149,7 @@ public class DeviceController {
 
     @PostMapping("/adjustLight")
     public Result adjustLight(@RequestBody AdjustLightDto adjustLightDto) {
+        MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
         LoginUser loginUser = (LoginUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = loginUser.getUser().getId();
         Device byDeviceId = deviceMapper.getByDeviceId(adjustLightDto.getDeviceId());
@@ -211,7 +221,6 @@ public class DeviceController {
         }
         UpdateDeviceDto updateDeviceDto = new UpdateDeviceDto();
         updateDeviceDto.setDeviceType(DT);
-        // TODO
 //        updateDeviceDto.setDeviceId();
         deviceMapper.update(updateDeviceDto);
         return Result.ok("更正设备类型为：" + DT);
@@ -230,47 +239,75 @@ public class DeviceController {
 //        }
 //
 //    }
-    public Result generateQRCode(String deviceId) {
+
+    @GetMapping("/generateQrcode")
+    public void generateQRCode(String deviceId, HttpServletResponse resp) {
+        MyWebSocketClient webSocketClient2 = websocketRunClientMap.get("ws-02");
         long id = System.currentTimeMillis() - 656446;
         String token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjODVjMjc1ODRkYjM0MjkxYWQxNWU5NjNjNDhmNmRhMiIsImlhdCI6MTcyMDU5NzAyNywiZXhwIjoyMDM1OTU3MDI3fQ.jpqE7WwUoD1bqeT9W7Tx4qvjREgBso61dzmr7UlYpLg";
         AuthDto authDto = new AuthDto("auth", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjODVjMjc1ODRkYjM0MjkxYWQxNWU5NjNjNDhmNmRhMiIsImlhdCI6MTcyMDU5NzAyNywiZXhwIjoyMDM1OTU3MDI3fQ.jpqE7WwUoD1bqeT9W7Tx4qvjREgBso61dzmr7UlYpLg");
         JSONObject jsonObject = (JSONObject) JSON.toJSON(authDto);
         String json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
         webSocketClient2.send(json);
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        String latestMessage = messageProcessor.getLatestMessage();
+
+        String latestMessage = webSocketClient2.getResponse();
         JSONObject jsonObject1 = JSONObject.parseObject(latestMessage);
         String status = (String) jsonObject1.get("type");
         if (!status.equals("auth_ok")) {
-            return Result.error("验证失败！");
+            return;
         }
 
         PersistentNotificationDto persistentNotificationDto = new PersistentNotificationDto("persistent_notification/subscribe", id);
         jsonObject = (JSONObject) JSON.toJSON(persistentNotificationDto);
         json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
         webSocketClient2.send(json);
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        latestMessage = messageProcessor.getLatestMessage();
+        latestMessage = webSocketClient2.getResponse();
+        id++;
+
+        ConfigEntriesDto configEntriesDto = new ConfigEntriesDto("config_entries/flow/progress", id);
+        jsonObject = (JSONObject) JSON.toJSON(configEntriesDto);
+        json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
+        webSocketClient2.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        latestMessage = webSocketClient2.getResponse();
         id++;
 
         ManifestDto manifestDto = new ManifestDto("manifest/get", "homekit", id);
         jsonObject = (JSONObject) JSON.toJSON(manifestDto);
         json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
         webSocketClient2.send(json);
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        latestMessage = messageProcessor.getLatestMessage();
+        latestMessage = webSocketClient2.getResponse();
         id++;
 
         List integration = new ArrayList<>();
@@ -278,38 +315,47 @@ public class DeviceController {
         FrontendDto frontendDto = new FrontendDto("frontend/get_translations", "zh-Hans", "config", integration, id);
         jsonObject = (JSONObject) JSON.toJSON(frontendDto);
         json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
         webSocketClient2.send(json);
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        latestMessage = messageProcessor.getLatestMessage();
+        latestMessage = webSocketClient2.getResponse();
         id++;
 
         frontendDto.setCategory("selector");
         frontendDto.setId(id);
         jsonObject = (JSONObject) JSON.toJSON(frontendDto);
         json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
         webSocketClient2.send(json);
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        latestMessage = messageProcessor.getLatestMessage();
+        latestMessage = webSocketClient2.getResponse();
         id++;
 
 
         HandlerDto handlerDto = new HandlerDto("homekit", false);
         jsonObject = (JSONObject) JSON.toJSON(handlerDto);
         json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), json);
 
         OkHttpClient client = new OkHttpClient();
         // Creating the request
         Request request = new Request.Builder()
-                .url("http://192.168.2.131:8123/api/config/config_entries/flow")
+                .url("http://192.168.162.177:8123/api/config/config_entries/flow")
                 .post(body)
                 .addHeader("Authorization", "Bearer " + token)
                 .build();
@@ -330,7 +376,7 @@ public class DeviceController {
         }
 
         IncludeDomainDto includeDomainDto = new IncludeDomainDto();
-        List include_domains = new ArrayList<>();
+        List<String> include_domains = new ArrayList<>();
         include_domains.add("alarm_control_panel");
         include_domains.add("climate");
         include_domains.add("camera");
@@ -344,18 +390,22 @@ public class DeviceController {
         include_domains.add("switch");
         include_domains.add("vacuum");
         include_domains.add("water_heater");
+        includeDomainDto.setInclude_domains(include_domains);
 
         jsonObject = (JSONObject) JSON.toJSON(includeDomainDto);
         json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
         body = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), json);
         Request request2 = new Request.Builder()
-                .url("http://192.168.2.131:8123/api/config/config_entries/flow/" + flowId)
+                .url("http://192.168.162.177:8123/api/config/config_entries/flow/" + flowId)
                 .post(body)
                 .addHeader("Authorization", "Bearer " + token)
                 .build();
 
         // Making the request and getting the response
-        try (Response response = client.newCall(request).execute()) {
+        try (Response response = client.newCall(request2).execute()) {
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
 
             // Printing the response
@@ -367,23 +417,26 @@ public class DeviceController {
         PersistentNotificationDto persistentNotificationDto1 = new PersistentNotificationDto("config/device_registry/list", id);
         jsonObject = (JSONObject) JSON.toJSON(persistentNotificationDto1);
         json = jsonObject.toString();
+        System.out.println("---------");
+        System.out.println(json);
+        System.out.println("---------");
         webSocketClient2.send(json);
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        latestMessage = messageProcessor.getLatestMessage();
+        latestMessage = webSocketClient2.getResponse();
 
         body = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), "{}");
         Request request3 = new Request.Builder()
-                .url("http://192.168.2.131:8123/api/config/config_entries/flow/" + flowId)
+                .url("http://192.168.162.177:8123/api/config/config_entries/flow/" + flowId)
                 .post(body)
                 .addHeader("Authorization", "Bearer " + token)
                 .build();
 
         // Making the request and getting the response
-        try (Response response = client.newCall(request).execute()) {
+        try (Response response = client.newCall(request3).execute()) {
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
 
             // Printing the response
@@ -393,11 +446,162 @@ public class DeviceController {
         }
 
         try {
-            Thread.sleep(40000);
+            Thread.sleep(100);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        latestMessage = messageProcessor.getLatestMessage();
+        latestMessage = webSocketClient2.getResponse();
+
+        String[] split = latestMessage.split("\\(");
+        String[] split1 = split[1].split("\\)");
+        String url = "http://192.168.162.177:8123" + split1[0];
+
+        Request request4 = new Request.Builder()
+                .url(url)
+                .get()
+                .build();
+
+        try (Response response = client.newCall(request4).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+
+            byte[] bytes = response.body().bytes();
+            resp.setContentType("image/svg+xml");
+            resp.setContentLength(bytes.length);
+
+            try(OutputStream outputStream = resp.getOutputStream()) {
+                outputStream.write(bytes);
+            }
+        } catch (IOException e) {
+            return;
+        }
+    }
+
+    @GetMapping("/receiveImageFromCamera")
+    public void receiveImageFromCamera(HttpServletResponse res){
+
+        ServletOutputStream out = null;
+
+        res.setContentType("image/jpeg");
+        try {
+            out = res.getOutputStream();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder()
+                .url("http://192.168.162.159:81/stream")
+                .get()
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+
+            // Printing the response
+            System.out.println(response.body().string());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try{
+            URL url = new URL("192.168.162.159:81/stream");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
+            if(conn.getResponseCode() == 200){
+                InputStream is = conn.getInputStream();
+
+                byte[] buffer = new byte[1024];
+                int len = 0;
+
+                while((len = is.read(buffer)) > 0){
+                    out.write(buffer,0,len);
+                }
+
+                out.close();
+                is.close();
+            }
+        }catch (Exception e){
+            return;
+        }
+    }
+
+    @GetMapping("/updateCameraFrameSize")
+    public Result updateCameraFramesize(@RequestParam int frameSize){
+
+        if(frameSize < 0 || frameSize > 13){
+            return Result.error("framesize must be between 0 and 13");
+        }
+
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder()
+                .url("http://192.168.50.21/control?var=framesize&val=" + frameSize)
+                .get().build();
+
+        try(Response response = client.newCall(request).execute()){
+            if(response.isSuccessful()){
+                return Result.ok("更新分辨率成功！");
+            }else {
+                log.error(response.body().toString());
+                return Result.error("更新分辨率时出现未知异常！");
+            }
+        } catch (IOException e) {
+            return Result.error("更新分辨率时出现未知异常！");
+        }
+    }
+
+//
+//    public Object queryDeviceStatus(Integer nodeId){
+//        MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
+//        QueryDeviceStatusDto queryDeviceStatusDto = new QueryDeviceStatusDto();
+//        queryDeviceStatusDto.setNode_id(nodeId);
+//        queryDeviceStatusDto.setCommand("read_attribute");
+//        queryDeviceStatusDto.setMessageId(UUID.randomUUID().toString());
+//        queryDeviceStatusDto.setAttribute_path("");
+//        JSONObject jsonObject = (JSONObject) JSON.toJSON(queryDeviceStatusDto);
+//        String json = jsonObject.toString();
+//
+//        webSocketClient.send(json);
+//
+//        String latestMessage = messageProcessor.getLatestMessage();
+//
+//        return latestMessage;
+//    }
+
+    @GetMapping("/getTemperatureSersorStatus")
+    public Result getTemperatureSersorStatus (Integer nodeId){
+        MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
+        Args args = new Args();
+        args.setNode_id(nodeId);
+        GetNode getNode = new GetNode("get_node",args);
+        JSONObject jsonObject = (JSONObject) JSON.toJSON(getNode);
+        String json = jsonObject.toString();
+
+        webSocketClient.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        String latestMessage = webSocketClient.getResponse();
+
+        JSONObject jsonObject2 = JSONObject.parseObject(latestMessage);
+        JSONObject result = (JSONObject) jsonObject2.get("result");
+        JSONObject attributes = (JSONObject) result.get("attributes");
+        Set<Map.Entry<String, Object>> entries = attributes.entrySet();
+
+//         cluster endpoint 检测
+        LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
+        Iterator it = attribute.entrySet().iterator();
+        while (it.hasNext()) {
+            String next = it.next().toString();
+            String[] split = next.split("/");
+            if (split.length == 3) {
+                int clusterId = Integer.parseInt(split[1]);
+                if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
+//                    split[2].split
+                }
+            }
+        }
 
 
         return null;

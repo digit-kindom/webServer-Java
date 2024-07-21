@@ -23,4 +23,5 @@ public class Device {
     private Integer node_id;
     private Integer endpoint_id;
     private Integer cluster_id;
+    private String qrcode;
 }

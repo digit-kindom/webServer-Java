@@ -12,15 +12,17 @@ public class MyWebSocketClient extends WebSocketClient {
 
     private String response;
     private Consumer<String> messageHandler;
+    private String wsName;
 
-    public MyWebSocketClient(URI serverUri) {
+
+    public MyWebSocketClient(URI serverUri, String wsName) {
         super(serverUri);
     }
 
-    public MyWebSocketClient(URI serverUri, Consumer<String> messageHandler) {
-        super(serverUri);
-        this.messageHandler = messageHandler;
-    }
+//    public MyWebSocketClient(URI serverUri, Consumer<String> messageHandler) {
+//        super(serverUri);
+//        this.message  Handler = messageHandler;
+//    }
 
     @Override
     public void onOpen(ServerHandshake arg0) {
@@ -41,9 +43,6 @@ public class MyWebSocketClient extends WebSocketClient {
     public void onMessage(String response) {
         log.info("-------- 接收到服务端数据： " + response + "--------");
         this.response = response;
-        if (this.messageHandler != null) {
-            this.messageHandler.accept(response);
-        }
     }
 
     public String getResponse() {
