@@ -2,14 +2,17 @@ package com.async.digitkingdom.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.parser.Feature;
 import com.async.digitkingdom.common.ClusterConst;
 import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
+import com.async.digitkingdom.common.TemperatureSensorConst;
 import com.async.digitkingdom.common.utils.MessageProcessor;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
 import com.async.digitkingdom.common.utils.RedisCache;
 import com.async.digitkingdom.entity.*;
 import com.async.digitkingdom.entity.dto.*;
+import com.async.digitkingdom.entity.vo.TemperatureSensorVo;
 import com.async.digitkingdom.mapper.DeviceClusterMapper;
 import com.async.digitkingdom.mapper.DeviceMapper;
 import com.async.digitkingdom.mapper.OperationHistoryMapper;
@@ -18,7 +21,6 @@ import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.java_websocket.client.WebSocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +28,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import javax.jmdns.JmDNS;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -192,6 +195,7 @@ public class DeviceController {
         LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
         Iterator it = attribute.entrySet().iterator();
         HashSet<Integer> set = new HashSet<Integer>();
+        TemperatureSensorVo temperatureSensorVo = new TemperatureSensorVo();
         while (it.hasNext()) {
             String next = it.next().toString();
             String[] split = next.split("/");
@@ -199,13 +203,26 @@ public class DeviceController {
                 int endpoint = Integer.parseInt(split[0]);
                 int clusterId = Integer.parseInt(split[1]);
                 if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
-                    set.add(clusterId);
-                    deviceClusterMapper.addDeviceCluster(clusterId, endpoint, deviceId);
+                    String[] value = split[2].split("=");
+                    if (TemperatureSensorConst.attributes.containsKey(Integer.parseInt(value[0]))) {
+                        String attributeName = TemperatureSensorConst.attributes.get(Integer.parseInt(value[0]));
+                        if (attributeName.equals("MeasuredValue")) {
+                            temperatureSensorVo.setMeasuredValue(Integer.valueOf(value[1]));
+                        }
+                        if (attributeName.equals("MinMeasuredValue")) {
+                            temperatureSensorVo.setMinMeasuredValue(Integer.valueOf(value[1]));
+                        }
+                        if (attributeName.equals("MaxMeasuredValue")) {
+                            temperatureSensorVo.setMaxMeasuredValue(Integer.valueOf(value[1]));
+                        }
+                        if (attributeName.equals("Tolerance")) {
+                            temperatureSensorVo.setTolerance(Integer.valueOf(value[1]));
+                        }
+                    }
                 }
             }
-            System.out.println(it.next());
         }
-        return Result.ok("Cluster扫描完成");
+        return Result.ok(temperatureSensorVo);
     }
 
     @PostMapping("/detectDeviceType")
@@ -583,28 +600,44 @@ public class DeviceController {
             throw new RuntimeException(e);
         }
         String latestMessage = webSocketClient.getResponse();
+        LinkedHashMap message = JSON.parseObject(latestMessage, LinkedHashMap.class, Feature.OrderedField);
 
-        JSONObject jsonObject2 = JSONObject.parseObject(latestMessage);
-        JSONObject result = (JSONObject) jsonObject2.get("result");
-        JSONObject attributes = (JSONObject) result.get("attributes");
-        Set<Map.Entry<String, Object>> entries = attributes.entrySet();
-
-//         cluster endpoint 检测
+        LinkedHashMap result = (LinkedHashMap) message.get("result");
         LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
         Iterator it = attribute.entrySet().iterator();
+        HashSet<Integer> set = new HashSet<Integer>();
+        TemperatureSensorVo temperatureSensorVo = new TemperatureSensorVo();
         while (it.hasNext()) {
             String next = it.next().toString();
             String[] split = next.split("/");
             if (split.length == 3) {
+                int endpoint = Integer.parseInt(split[0]);
                 int clusterId = Integer.parseInt(split[1]);
                 if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
-//                    split[2].split
+                    String[] value = split[2].split("=");
+                    if (TemperatureSensorConst.attributes.containsKey(Integer.parseInt(value[0]))) {
+                        String attributeName = TemperatureSensorConst.attributes.get(Integer.parseInt(value[0]));
+                        if (attributeName.equals("MeasuredValue")) {
+                            temperatureSensorVo.setMeasuredValue(Integer.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("MinMeasuredValue")) {
+                            temperatureSensorVo.setMinMeasuredValue(Integer.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("MaxMeasuredValue")) {
+                            temperatureSensorVo.setMaxMeasuredValue(Integer.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("Tolerance")) {
+                            temperatureSensorVo.setTolerance(Integer.valueOf(value[1]));
+                            continue;
+                        }
+                    }
                 }
             }
         }
-
-
-        return null;
+        return Result.ok(temperatureSensorVo);
     }
 }
 

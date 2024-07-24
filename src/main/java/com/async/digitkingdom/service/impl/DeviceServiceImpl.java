@@ -1,5 +1,6 @@
 package com.async.digitkingdom.service.impl;
 
+import com.async.digitkingdom.common.ClusterConst;
 import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
@@ -55,18 +56,6 @@ public class DeviceServiceImpl implements DeviceService {
         device.setDeviceId(deviceId);
         device.setDeviceName(DeviceTypeConst.deviceConstMap.get(device.getDeviceType()));
         deviceMapper.insert(device);
-
-//        //订阅消息
-//        SubscribeToEventDto subcribeToEventDto = new SubscribeToEventDto();
-//        subcribeToEventDto.setId(device.getNodeId());
-//        subcribeToEventDto.setEvent_type("subscribe_events");
-//        JSONObject json = (JSONObject) JSONObject.toJSON(subcribeToEventDto);
-//        webSocketClient.send(String.valueOf(json));
-
-//        while((message = webSocketClient.)==null){
-//            System.out.println("服务忙等待...");
-//            Thread.sleep(1000);
-//        }
 
         return Result.ok("添加设备成功！");
     }
@@ -144,7 +133,7 @@ public class DeviceServiceImpl implements DeviceService {
         return null;
     }
 
-//    public Result detectCluster(Object object, String deviceId) {
+//    public Result detectCluster(Object object) {
 ////        String deviceId = "3fcd84e5-5acf-4808-aac4-bd9cd3893a72";
 //        LinkedHashMap json = (LinkedHashMap) object;
 //        LinkedHashMap result = (LinkedHashMap) json.get("result");
@@ -157,7 +146,7 @@ public class DeviceServiceImpl implements DeviceService {
 //                int endpoint = Integer.parseInt(split[0]);
 //                int clusterId = Integer.parseInt(split[1]);
 //                if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
-//                    deviceClusterMapper.addDeviceCluster(clusterId, endpoint, deviceId);
+////                    deviceClusterMapper.addDeviceCluster(clusterId, endpoint, deviceId);
 //                }
 //            }
 //            System.out.println(it.next());
