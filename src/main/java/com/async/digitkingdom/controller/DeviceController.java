@@ -190,10 +190,10 @@ public class DeviceController {
             if (split.length == 3) {
                 int endpoint = Integer.parseInt(split[0]);
                 int clusterId = Integer.parseInt(split[1]);
-                if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
+                if (ClusterConst.clusterConstMap.containsKey(clusterId) && clusterId == 1037) {
                     String[] value = split[2].split("=");
                     if (ConcentrationMeasurementConst.attributes.containsKey(Integer.parseInt(value[0]))) {
-                        String attributeName = TemperatureSensorConst.attributes.get(Integer.parseInt(value[0]));
+                        String attributeName = ConcentrationMeasurementConst.attributes.get(Integer.parseInt(value[0]));
                         if(attributeName == null) continue;
                         if (attributeName.equals("MeasuredValue")) {
                             concentrationMeasurementVo.setMeasuredValue(Float.valueOf(value[1]));
@@ -696,7 +696,7 @@ public class DeviceController {
                 if (ClusterConst.clusterConstMap.containsKey(clusterId) ) {
                     String[] value = split[2].split("=");
                     if (ConcentrationMeasurementConst.attributes.containsKey(Integer.parseInt(value[0]))) {
-                        String attributeName = TemperatureSensorConst.attributes.get(Integer.parseInt(value[0]));
+                        String attributeName = ConcentrationMeasurementConst.attributes.get(Integer.parseInt(value[0]));
                         if(attributeName == null) continue;
                         if (attributeName.equals("MeasuredValue")) {
                             concentrationMeasurementVo.setMeasuredValue(Float.valueOf(value[1]));
