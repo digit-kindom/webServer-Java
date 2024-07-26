@@ -10,5 +10,6 @@ public class ClusterConst {
         clusterConstMap.put(8, "Level_Control");
         clusterConstMap.put(9, "Alarms");
         clusterConstMap.put(1026, "Temperature Measurement");
+        clusterConstMap.put(1037, "Carbon Dioxide Concentration Measurement");
     }
 }

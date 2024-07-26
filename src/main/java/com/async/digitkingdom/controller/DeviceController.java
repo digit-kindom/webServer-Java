@@ -3,15 +3,13 @@ package com.async.digitkingdom.controller;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.parser.Feature;
-import com.async.digitkingdom.common.ClusterConst;
-import com.async.digitkingdom.common.DeviceTypeConst;
-import com.async.digitkingdom.common.Result;
-import com.async.digitkingdom.common.TemperatureSensorConst;
+import com.async.digitkingdom.common.*;
 import com.async.digitkingdom.common.utils.MessageProcessor;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
 import com.async.digitkingdom.common.utils.RedisCache;
 import com.async.digitkingdom.entity.*;
 import com.async.digitkingdom.entity.dto.*;
+import com.async.digitkingdom.entity.vo.ConcentrationMeasurementVo;
 import com.async.digitkingdom.entity.vo.TemperatureSensorVo;
 import com.async.digitkingdom.mapper.DeviceClusterMapper;
 import com.async.digitkingdom.mapper.DeviceMapper;
@@ -28,7 +26,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import javax.jmdns.JmDNS;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -72,14 +69,6 @@ public class DeviceController {
 //        log.info("已添加设备{}", JSON.toJSONString(device));
         return deviceService.addDevice(object);
     }
-
-//    @PostMapping("/add")
-//    public Result addDevice(@RequestBody AddDeviceDto addDeviceDto) {
-//        Device device = new Device();
-//        BeanUtils.copyProperties(addDeviceDto, device);
-//        log.info("已添加设备{}", JSON.toJSONString(device));
-//        return deviceService.addDevice(device);
-//    }
 
     @GetMapping("/list/{pageNum}/{pageSize}")
     public Result selectByPage(@PathVariable int pageNum, @PathVariable int pageSize) {
@@ -189,13 +178,12 @@ public class DeviceController {
 
     @PostMapping("/detectCluster")
     public Result detectCluster(@RequestBody Object object) {
-        String deviceId = "3fcd84e5-5acf-4808-aac4-bd9cd3893a72";
         LinkedHashMap json = (LinkedHashMap) object;
         LinkedHashMap result = (LinkedHashMap) json.get("result");
         LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
         Iterator it = attribute.entrySet().iterator();
         HashSet<Integer> set = new HashSet<Integer>();
-        TemperatureSensorVo temperatureSensorVo = new TemperatureSensorVo();
+        ConcentrationMeasurementVo concentrationMeasurementVo = new ConcentrationMeasurementVo();
         while (it.hasNext()) {
             String next = it.next().toString();
             String[] split = next.split("/");
@@ -204,25 +192,58 @@ public class DeviceController {
                 int clusterId = Integer.parseInt(split[1]);
                 if (ClusterConst.clusterConstMap.containsKey(clusterId)) {
                     String[] value = split[2].split("=");
-                    if (TemperatureSensorConst.attributes.containsKey(Integer.parseInt(value[0]))) {
+                    if (ConcentrationMeasurementConst.attributes.containsKey(Integer.parseInt(value[0]))) {
                         String attributeName = TemperatureSensorConst.attributes.get(Integer.parseInt(value[0]));
+                        if(attributeName == null) continue;
                         if (attributeName.equals("MeasuredValue")) {
-                            temperatureSensorVo.setMeasuredValue(Integer.valueOf(value[1]));
+                            concentrationMeasurementVo.setMeasuredValue(Float.valueOf(value[1]));
+                            continue;
                         }
                         if (attributeName.equals("MinMeasuredValue")) {
-                            temperatureSensorVo.setMinMeasuredValue(Integer.valueOf(value[1]));
+                            concentrationMeasurementVo.setMinMeasuredValue(Float.valueOf(value[1]));
+                            continue;
                         }
                         if (attributeName.equals("MaxMeasuredValue")) {
-                            temperatureSensorVo.setMaxMeasuredValue(Integer.valueOf(value[1]));
+                            concentrationMeasurementVo.setMaxMeasuredValue(Float.valueOf(value[1]));
+                            continue;
                         }
-                        if (attributeName.equals("Tolerance")) {
-                            temperatureSensorVo.setTolerance(Integer.valueOf(value[1]));
+                        if (attributeName.equals("PeakMeasuredValue")) {
+                            concentrationMeasurementVo.setPeakMeasuredValue(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("PeakMeasuredValueWindow")){
+                            concentrationMeasurementVo.setPeakMeasuredValueWindow(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("AverageMeasuredValue")){
+                            concentrationMeasurementVo.setAverageMeasuredValue(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("AverageMeasuredValueWindow")){
+                            concentrationMeasurementVo.setAverageMeasuredValueWindow(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("Uncertainty")){
+                            concentrationMeasurementVo.setUncertainty(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("MeasurementUnit")){
+                            concentrationMeasurementVo.setMeasurementUnit(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("MeasurementMedium")){
+                            concentrationMeasurementVo.setMeasurementMedium(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("LevelValue")){
+                            concentrationMeasurementVo.setLevelValue(Float.valueOf(value[1]));
+                            continue;
                         }
                     }
                 }
             }
         }
-        return Result.ok(temperatureSensorVo);
+        return Result.ok(concentrationMeasurementVo);
     }
 
     @PostMapping("/detectDeviceType")
@@ -638,6 +659,95 @@ public class DeviceController {
             }
         }
         return Result.ok(temperatureSensorVo);
+    }
+
+    @GetMapping("/getAirCondition")
+    public Result getAirCondition (Integer nodeId, Integer targetClusterId){
+        if(!AirConditionConst.airConditionCluster.containsKey(targetClusterId)){
+            return Result.error("传入了错误的clusterId");
+        }
+        MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
+        Args args = new Args();
+        args.setNode_id(nodeId);
+        GetNode getNode = new GetNode("get_node",args);
+        JSONObject jsonObject = (JSONObject) JSON.toJSON(getNode);
+        String json = jsonObject.toString();
+
+        webSocketClient.send(json);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        String latestMessage = webSocketClient.getResponse();
+        LinkedHashMap message = JSON.parseObject(latestMessage, LinkedHashMap.class, Feature.OrderedField);
+
+        LinkedHashMap result = (LinkedHashMap) message.get("result");
+        LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
+        Iterator it = attribute.entrySet().iterator();
+        HashSet<Integer> set = new HashSet<Integer>();
+        ConcentrationMeasurementVo concentrationMeasurementVo = new ConcentrationMeasurementVo();
+        while (it.hasNext()) {
+            String next = it.next().toString();
+            String[] split = next.split("/");
+            if (split.length == 3) {
+                int endpoint = Integer.parseInt(split[0]);
+                int clusterId = Integer.parseInt(split[1]);
+                if (ClusterConst.clusterConstMap.containsKey(clusterId) ) {
+                    String[] value = split[2].split("=");
+                    if (ConcentrationMeasurementConst.attributes.containsKey(Integer.parseInt(value[0]))) {
+                        String attributeName = TemperatureSensorConst.attributes.get(Integer.parseInt(value[0]));
+                        if(attributeName == null) continue;
+                        if (attributeName.equals("MeasuredValue")) {
+                            concentrationMeasurementVo.setMeasuredValue(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("MinMeasuredValue")) {
+                            concentrationMeasurementVo.setMinMeasuredValue(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("MaxMeasuredValue")) {
+                            concentrationMeasurementVo.setMaxMeasuredValue(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("PeakMeasuredValue")) {
+                            concentrationMeasurementVo.setPeakMeasuredValue(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("PeakMeasuredValueWindow")){
+                            concentrationMeasurementVo.setPeakMeasuredValueWindow(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("AverageMeasuredValue")){
+                            concentrationMeasurementVo.setAverageMeasuredValue(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("AverageMeasuredValueWindow")){
+                            concentrationMeasurementVo.setAverageMeasuredValueWindow(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("Uncertainty")){
+                            concentrationMeasurementVo.setUncertainty(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("MeasurementUnit")){
+                            concentrationMeasurementVo.setMeasurementUnit(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("MeasurementMedium")){
+                            concentrationMeasurementVo.setMeasurementMedium(Float.valueOf(value[1]));
+                            continue;
+                        }
+                        if (attributeName.equals("LevelValue")){
+                            concentrationMeasurementVo.setLevelValue(Float.valueOf(value[1]));
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        concentrationMeasurementVo.setTarget(AirConditionConst.airConditionCluster.get(targetClusterId));
+        return Result.ok(concentrationMeasurementVo);
     }
 }
 
