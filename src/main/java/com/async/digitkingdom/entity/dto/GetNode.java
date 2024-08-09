@@ -11,4 +11,5 @@ import lombok.NoArgsConstructor;
 public class GetNode {
     private String command;
     private Args args;
+    private String message_id;
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.async.digitkingdom.mapper.AlertMapper">
+
+    <select id="getAllAlertByUserId" resultType="com.async.digitkingdom.entity.Alert">
+        select alert_collection.*
+        from device.alert_collection
+                 join device.device on device.alert_collection.device_id = device.device_id
+                 join device.auth_user au on device.device.user_id = au.id
+        where au.id = #{userId}
+    </select>
+    <select id="getAlertById" resultType="com.async.digitkingdom.entity.Alert">
+        select * from device.alert_collection
+        where alert_id = #{alertId}
+    </select>
+</mapper>

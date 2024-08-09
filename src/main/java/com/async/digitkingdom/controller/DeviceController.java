@@ -2,7 +2,6 @@ package com.async.digitkingdom.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.parser.Feature;
 import com.async.digitkingdom.common.*;
 import com.async.digitkingdom.common.utils.MessageProcessor;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
@@ -33,6 +32,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 @RestController
@@ -61,6 +61,11 @@ public class DeviceController {
 //        log.info("已添加设备{}", JSON.toJSONString(device));
 //        return deviceService.addDevice(device);
 //    }
+
+    @GetMapping("/sendAlert")
+    public Result sendAlert() {
+        return deviceService.sendAlert();
+    }
 
     @PostMapping("/add")
     public Result addDevice(@RequestBody Object object) {
@@ -297,11 +302,11 @@ public class DeviceController {
         }
 
         String latestMessage = webSocketClient2.getResponse();
-        JSONObject jsonObject1 = JSONObject.parseObject(latestMessage);
-        String status = (String) jsonObject1.get("type");
-        if (!status.equals("auth_ok")) {
-            return;
-        }
+//        JSONObject jsonObject1 = JSONObject.parseObject(latestMessage);
+//        String status = (String) jsonObject1.get("type");
+//        if (!status.equals("auth_ok")) {
+//            return;
+//        }
 
         PersistentNotificationDto persistentNotificationDto = new PersistentNotificationDto("persistent_notification/subscribe", id);
         jsonObject = (JSONObject) JSON.toJSON(persistentNotificationDto);
@@ -393,7 +398,7 @@ public class DeviceController {
         OkHttpClient client = new OkHttpClient();
         // Creating the request
         Request request = new Request.Builder()
-                .url("http://192.168.162.177:8123/api/config/config_entries/flow")
+                .url("http://192.168.1.131:8123/api/config/config_entries/flow")
                 .post(body)
                 .addHeader("Authorization", "Bearer " + token)
                 .build();
@@ -428,6 +433,9 @@ public class DeviceController {
         include_domains.add("switch");
         include_domains.add("vacuum");
         include_domains.add("water_heater");
+        include_domains.add("binary_sensor");
+        include_domains.add("sensor");
+        include_domains.add("button");
         includeDomainDto.setInclude_domains(include_domains);
 
         jsonObject = (JSONObject) JSON.toJSON(includeDomainDto);
@@ -437,7 +445,7 @@ public class DeviceController {
         System.out.println("---------");
         body = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), json);
         Request request2 = new Request.Builder()
-                .url("http://192.168.162.177:8123/api/config/config_entries/flow/" + flowId)
+                .url("http://192.168.1.131:8123/api/config/config_entries/flow/" + flowId)
                 .post(body)
                 .addHeader("Authorization", "Bearer " + token)
                 .build();
@@ -468,7 +476,7 @@ public class DeviceController {
 
         body = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), "{}");
         Request request3 = new Request.Builder()
-                .url("http://192.168.162.177:8123/api/config/config_entries/flow/" + flowId)
+                .url("http://192.168.1.131:8123/api/config/config_entries/flow/" + flowId)
                 .post(body)
                 .addHeader("Authorization", "Bearer " + token)
                 .build();
@@ -492,7 +500,7 @@ public class DeviceController {
 
         String[] split = latestMessage.split("\\(");
         String[] split1 = split[1].split("\\)");
-        String url = "http://192.168.162.177:8123" + split1[0];
+        String url = "http://192.168.1.131:8123" + split1[0];
 
         Request request4 = new Request.Builder()
                 .url(url)
@@ -605,26 +613,32 @@ public class DeviceController {
 //        return latestMessage;
 //    }
 
-    @GetMapping("/getTemperatureSersorStatus")
-    public Result getTemperatureSersorStatus (Integer nodeId){
+    @GetMapping("/getTemperatureSensorStatus")
+    public Result getTemperatureSensorStatus (Integer nodeId) throws InterruptedException {
         MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
         Args args = new Args();
         args.setNode_id(nodeId);
-        GetNode getNode = new GetNode("get_node",args);
+        String messageId = generateMessageId();
+        GetNode getNode = new GetNode("get_node",args,messageId);
         JSONObject jsonObject = (JSONObject) JSON.toJSON(getNode);
         String json = jsonObject.toString();
 
         webSocketClient.send(json);
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        String latestMessage = webSocketClient.getResponse();
-        LinkedHashMap message = JSON.parseObject(latestMessage, LinkedHashMap.class, Feature.OrderedField);
 
-        LinkedHashMap result = (LinkedHashMap) message.get("result");
-        LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
+        String receiveData = null;
+        long startTime = System.currentTimeMillis();
+        while (receiveData == null) {
+            receiveData = redisCache.getCacheObject("message_id:" + messageId);
+            if(System.currentTimeMillis() - startTime > 5000){
+                throw new RuntimeException("获取温度传感器数据失败！");
+            }
+            Thread.sleep(500);
+        }
+        redisCache.deleteObject("message_id:" + messageId);
+
+        JSONObject jsonObject1 = JSON.parseObject(receiveData);
+        JSONObject result = (JSONObject) jsonObject1.get("result");
+        JSONObject attribute = (JSONObject) result.get("attributes");
         Iterator it = attribute.entrySet().iterator();
         HashSet<Integer> set = new HashSet<Integer>();
         TemperatureSensorVo temperatureSensorVo = new TemperatureSensorVo();
@@ -662,28 +676,34 @@ public class DeviceController {
     }
 
     @GetMapping("/getAirCondition")
-    public Result getAirCondition (Integer nodeId, Integer targetClusterId){
-        if(!AirConditionConst.airConditionCluster.containsKey(targetClusterId)){
+    public Result getAirCondition (Integer nodeId, Integer targetClusterId) throws InterruptedException {
+        if (!AirConditionConst.airConditionCluster.containsKey(targetClusterId)) {
             return Result.error("传入了错误的clusterId");
         }
         MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
         Args args = new Args();
         args.setNode_id(nodeId);
-        GetNode getNode = new GetNode("get_node",args);
+        String messageId = generateMessageId();
+        GetNode getNode = new GetNode("get_node", args, messageId);
         JSONObject jsonObject = (JSONObject) JSON.toJSON(getNode);
         String json = jsonObject.toString();
 
         webSocketClient.send(json);
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+//        String latestMessage = webSocketClient.getResponse();
+        String receiveData = null;
+        long startTime = System.currentTimeMillis();
+        while (receiveData == null) {
+            receiveData = redisCache.getCacheObject("message_id:" + messageId);
+            if(System.currentTimeMillis() - startTime > 5000){
+                throw new RuntimeException("获取空气传感器数据失败！");
+            }
+            Thread.sleep(500);
         }
-        String latestMessage = webSocketClient.getResponse();
-        LinkedHashMap message = JSON.parseObject(latestMessage, LinkedHashMap.class, Feature.OrderedField);
+        redisCache.deleteObject("message_id:" + messageId);
 
-        LinkedHashMap result = (LinkedHashMap) message.get("result");
-        LinkedHashMap attribute = (LinkedHashMap) result.get("attributes");
+        JSONObject jsonObject1 = JSON.parseObject(receiveData);
+        JSONObject result = (JSONObject) jsonObject1.get("result");
+        JSONObject attribute = (JSONObject) result.get("attributes");
         Iterator it = attribute.entrySet().iterator();
         HashSet<Integer> set = new HashSet<Integer>();
         ConcentrationMeasurementVo concentrationMeasurementVo = new ConcentrationMeasurementVo();
@@ -693,11 +713,11 @@ public class DeviceController {
             if (split.length == 3) {
                 int endpoint = Integer.parseInt(split[0]);
                 int clusterId = Integer.parseInt(split[1]);
-                if (ClusterConst.clusterConstMap.containsKey(clusterId) ) {
+                if (AirConditionConst.airConditionCluster.containsKey(clusterId) && targetClusterId == clusterId) {
                     String[] value = split[2].split("=");
                     if (ConcentrationMeasurementConst.attributes.containsKey(Integer.parseInt(value[0]))) {
                         String attributeName = ConcentrationMeasurementConst.attributes.get(Integer.parseInt(value[0]));
-                        if(attributeName == null) continue;
+                        if (attributeName == null) continue;
                         if (attributeName.equals("MeasuredValue")) {
                             concentrationMeasurementVo.setMeasuredValue(Float.valueOf(value[1]));
                             continue;
@@ -714,31 +734,31 @@ public class DeviceController {
                             concentrationMeasurementVo.setPeakMeasuredValue(Float.valueOf(value[1]));
                             continue;
                         }
-                        if (attributeName.equals("PeakMeasuredValueWindow")){
+                        if (attributeName.equals("PeakMeasuredValueWindow")) {
                             concentrationMeasurementVo.setPeakMeasuredValueWindow(Float.valueOf(value[1]));
                             continue;
                         }
-                        if (attributeName.equals("AverageMeasuredValue")){
+                        if (attributeName.equals("AverageMeasuredValue")) {
                             concentrationMeasurementVo.setAverageMeasuredValue(Float.valueOf(value[1]));
                             continue;
                         }
-                        if (attributeName.equals("AverageMeasuredValueWindow")){
+                        if (attributeName.equals("AverageMeasuredValueWindow")) {
                             concentrationMeasurementVo.setAverageMeasuredValueWindow(Float.valueOf(value[1]));
                             continue;
                         }
-                        if (attributeName.equals("Uncertainty")){
+                        if (attributeName.equals("Uncertainty")) {
                             concentrationMeasurementVo.setUncertainty(Float.valueOf(value[1]));
                             continue;
                         }
-                        if (attributeName.equals("MeasurementUnit")){
+                        if (attributeName.equals("MeasurementUnit")) {
                             concentrationMeasurementVo.setMeasurementUnit(Float.valueOf(value[1]));
                             continue;
                         }
-                        if (attributeName.equals("MeasurementMedium")){
+                        if (attributeName.equals("MeasurementMedium")) {
                             concentrationMeasurementVo.setMeasurementMedium(Float.valueOf(value[1]));
                             continue;
                         }
-                        if (attributeName.equals("LevelValue")){
+                        if (attributeName.equals("LevelValue")) {
                             concentrationMeasurementVo.setLevelValue(Float.valueOf(value[1]));
                             continue;
                         }
@@ -748,6 +768,11 @@ public class DeviceController {
         }
         concentrationMeasurementVo.setTarget(AirConditionConst.airConditionCluster.get(targetClusterId));
         return Result.ok(concentrationMeasurementVo);
+    }
+
+
+    public String generateMessageId(){
+        return new SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date());
     }
 }
 

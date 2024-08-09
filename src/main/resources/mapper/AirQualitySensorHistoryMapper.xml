@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.async.digitkingdom.mapper.AirQualitySensorHistoryMapper">
+
+    <insert id="insert">
+        insert into device.air_quality_sensor_history (node_id, substant_type, value, detect_time,unit) VALUES
+        (#{nodeId},#{substanceType},#{value},#{detectTime},#{unit})
+    </insert>
+
+    <select id="selectData" resultType="com.async.digitkingdom.entity.dto.AirQualityHistoryDto">
+        select *,DATE_FORMAT(detect_time,'%Y-%m-%d %H:%i') as time_slot from device.air_quality_sensor_history
+        <where>
+            <if test="range == 1">and MOD(MINUTE(detect_time), 5) = 0</if>
+            <if test="range == 2">and MOD(MINUTE(detect_time), 15) = 0</if>
+            <if test="range == 3">and MOD(MINUTE(detect_time), 30) = 0</if>
+            <if test="range == 4">and MOD(MINUTE(detect_time), 60) = 0</if>
+            and node_id = #{nodeId} and substant_type = #{clusterId}
+        </where>
+        order by detect_time desc
+        limit 100
+    </select>
+</mapper>

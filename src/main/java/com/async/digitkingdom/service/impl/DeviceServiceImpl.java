@@ -1,6 +1,5 @@
 package com.async.digitkingdom.service.impl;
 
-import com.async.digitkingdom.common.ClusterConst;
 import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
@@ -133,6 +132,12 @@ public class DeviceServiceImpl implements DeviceService {
         return null;
     }
 
+    @Override
+    public Result sendAlert() {
+//        deviceMapper.alertList();
+        return Result.ok();
+    }
+
 //    public Result detectCluster(Object object) {
 ////        String deviceId = "3fcd84e5-5acf-4808-aac4-bd9cd3893a72";
 //        LinkedHashMap json = (LinkedHashMap) object;
@@ -176,7 +181,7 @@ public class DeviceServiceImpl implements DeviceService {
         LinkedHashMap json = (LinkedHashMap) object;
         LinkedHashMap result = (LinkedHashMap) json.get("result");
         // nodeId 获取
-        Integer nodeId = (Integer) json.get("node_id");
+        Integer nodeId = (Integer) result.get("node_id");
         // qrcode 获取
         String qrcode = (String) json.get("qrcode");
         // cluster endpoint 检测
@@ -195,7 +200,7 @@ public class DeviceServiceImpl implements DeviceService {
 //        }
 
         // DeviceType 检测
-        String DTstr = (String) json.get("DT");
+        String DTstr = (String) json.get("dT");
 //        String[] split = DTstr.split("x");
         Integer DT = null;
         DT = Integer.parseInt(DTstr);

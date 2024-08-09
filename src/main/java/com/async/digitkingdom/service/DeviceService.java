@@ -22,4 +22,6 @@ public interface DeviceService {
     Result adjustLight(AdjustLightDto adjustLightDto);
 
     Result receiveImageFromCamera(int frameSize);
+
+    Result sendAlert();
 }
