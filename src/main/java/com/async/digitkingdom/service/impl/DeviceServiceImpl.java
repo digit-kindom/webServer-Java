@@ -6,14 +6,8 @@ import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
 import com.async.digitkingdom.common.utils.RedisCache;
-import com.async.digitkingdom.entity.Args;
-import com.async.digitkingdom.entity.Device;
-import com.async.digitkingdom.entity.LoginUser;
-import com.async.digitkingdom.entity.OperateFanArgs;
-import com.async.digitkingdom.entity.dto.AdjustLightDto;
-import com.async.digitkingdom.entity.dto.GetNode;
-import com.async.digitkingdom.entity.dto.OperateFanDto;
-import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
+import com.async.digitkingdom.entity.*;
+import com.async.digitkingdom.entity.dto.*;
 import com.async.digitkingdom.mapper.DeviceClusterMapper;
 import com.async.digitkingdom.mapper.DeviceMapper;
 import com.async.digitkingdom.service.DeviceService;
@@ -229,7 +223,84 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     public Result operateColorfulLight(Integer nodeId, Integer value) {
-        return null;
+        MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
+
+        Args args = new Args();
+        args.setNode_id(nodeId);
+        String messageId = generateMessageId();
+        GetNode getNode = new GetNode("get_node", args, messageId);
+        JSONObject jsonObject = (JSONObject) JSON.toJSON(getNode);
+        String json = jsonObject.toString();
+        webSocketClient.send(json);
+
+        String receiveData = null;
+        long startTime = System.currentTimeMillis();
+        while (receiveData == null) {
+            receiveData = redisCache.getCacheObject("message_id:" + messageId);
+            if(System.currentTimeMillis() - startTime > 5000){
+                throw new RuntimeException("获取彩灯数据失败！");
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        redisCache.deleteObject("message_id:" + messageId);
+
+        JSONObject jsonObject1 = JSON.parseObject(receiveData);
+        JSONObject result = (JSONObject) jsonObject1.get("result");
+        JSONObject attribute = (JSONObject) result.get("attributes");
+        Iterator it = attribute.entrySet().iterator();
+        HashSet<Integer> set = new HashSet<Integer>();
+        String attributePath = null;
+
+        while (it.hasNext()) {
+            String next = it.next().toString();
+            if(next.split("=")[0].contains("80")){
+                attributePath = next.split("=")[0];
+                break;
+            }
+        }
+
+        if(attributePath == null){
+            return Result.error("不支持该设备类型");
+        }
+
+        String[] split = attributePath.split("/");
+        String endpoint = split[0];
+
+
+        messageId = generateMessageId();
+        OperateColorfulLightDto operateColorfulLightDto = new OperateColorfulLightDto(
+                messageId,
+                "device_command",
+                new OperateColorfulLightArgs(Integer.parseInt(endpoint),nodeId,
+                        new ColorfulLightPayload(value)),
+                80,
+                "ChangeToMode"
+        );
+
+        jsonObject = (JSONObject) JSON.toJSON(operateColorfulLightDto);
+        json = jsonObject.toString();
+        webSocketClient.send(json);
+
+        receiveData = null;
+        startTime = System.currentTimeMillis();
+        while (receiveData == null) {
+            receiveData = redisCache.getCacheObject("message_id:" + messageId);
+            if(System.currentTimeMillis() - startTime > 5000){
+                throw new RuntimeException("操作风扇失败");
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        redisCache.deleteObject("message_id:" + messageId);
+
+        return Result.ok("操作成功！");
     }
 
 //    public Result detectCluster(Object object) {

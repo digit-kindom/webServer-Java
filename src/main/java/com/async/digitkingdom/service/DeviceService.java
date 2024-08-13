@@ -27,5 +27,5 @@ public interface DeviceService {
 
     Result operateFan(Integer nodeId, Integer value);
 
-    Result operateColorfulLight(Integer nodeId, Integer value);
+    Result operateColorfulLight(Integer nodeId, Integer mode);
 }

@@ -785,14 +785,12 @@ public class DeviceController {
     }
 
     @PostMapping("/operateColorfulLight")
-    public Result operateColorfulLight(@RequestParam("deviceId") String deviceId,@RequestParam("value") Integer value){
+    public Result operateColorfulLight(@RequestParam("deviceId") String deviceId,@RequestParam("mode") Integer mode){
         Device byDeviceId = deviceMapper.getByDeviceId(deviceId);
         if(byDeviceId == null){
             return Result.error("输入了错误的id");
         }
-        return deviceService.operateColorfulLight(byDeviceId.getNodeId(), value);
+        return deviceService.operateColorfulLight(byDeviceId.getNodeId(), mode);
     }
-
-
 }
 
