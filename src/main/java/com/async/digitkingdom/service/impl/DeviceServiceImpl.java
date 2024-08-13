@@ -164,7 +164,7 @@ public class DeviceServiceImpl implements DeviceService {
         while (receiveData == null) {
             receiveData = redisCache.getCacheObject("message_id:" + messageId);
             if(System.currentTimeMillis() - startTime > 5000){
-                throw new RuntimeException("获取空气传感器数据失败！");
+                throw new RuntimeException("获取风扇数据失败！");
             }
             try {
                 Thread.sleep(500);
