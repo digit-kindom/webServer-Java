@@ -15,6 +15,6 @@ public class DeviceTypeConst {
         deviceConstMap.put(0x002C,"Air Quality Sensor");
         deviceConstMap.put(0x0202,"Window Covering");
         deviceConstMap.put(0x22B8,"Camera");
-        deviceConstMap.put(0x22B9,"Colorful Light");
+        deviceConstMap.put(0x010D,"Colorful Light");
     }
 }

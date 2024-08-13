@@ -774,5 +774,25 @@ public class DeviceController {
     public String generateMessageId(){
         return new SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date());
     }
+
+    @PostMapping("/operateFan")
+    public Result operateFan(@RequestParam("deviceId") String deviceId,@RequestParam("value") Integer value){
+        Device byDeviceId = deviceMapper.getByDeviceId(deviceId);
+        if(byDeviceId == null){
+            return Result.error("输入了错误的id");
+        }
+        return deviceService.operateFan(byDeviceId.getNodeId(), value);
+    }
+
+    @PostMapping("/operateColorfulLight")
+    public Result operateColorfulLight(@RequestParam("deviceId") String deviceId,@RequestParam("value") Integer value){
+        Device byDeviceId = deviceMapper.getByDeviceId(deviceId);
+        if(byDeviceId == null){
+            return Result.error("输入了错误的id");
+        }
+        return deviceService.operateColorfulLight(byDeviceId.getNodeId(), value);
+    }
+
+
 }
 

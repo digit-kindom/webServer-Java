@@ -1,11 +1,18 @@
 package com.async.digitkingdom.service.impl;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.async.digitkingdom.common.DeviceTypeConst;
 import com.async.digitkingdom.common.Result;
 import com.async.digitkingdom.common.utils.MyWebSocketClient;
+import com.async.digitkingdom.common.utils.RedisCache;
+import com.async.digitkingdom.entity.Args;
 import com.async.digitkingdom.entity.Device;
 import com.async.digitkingdom.entity.LoginUser;
+import com.async.digitkingdom.entity.OperateFanArgs;
 import com.async.digitkingdom.entity.dto.AdjustLightDto;
+import com.async.digitkingdom.entity.dto.GetNode;
+import com.async.digitkingdom.entity.dto.OperateFanDto;
 import com.async.digitkingdom.entity.dto.UpdateDeviceDto;
 import com.async.digitkingdom.mapper.DeviceClusterMapper;
 import com.async.digitkingdom.mapper.DeviceMapper;
@@ -18,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -30,6 +38,8 @@ public class DeviceServiceImpl implements DeviceService {
     private DeviceClusterMapper deviceClusterMapper;
     @Autowired
     private Map<String, MyWebSocketClient> websocketRunClientMap;
+    @Resource
+    private RedisCache redisCache;
 
 //    @Override
 //    public Result addDevice(Device device) {
@@ -138,6 +148,90 @@ public class DeviceServiceImpl implements DeviceService {
         return Result.ok();
     }
 
+    @Override
+    public Result operateFan(Integer nodeId, Integer value) {
+        MyWebSocketClient webSocketClient = websocketRunClientMap.get("ws-01");
+        Args args = new Args();
+        args.setNode_id(nodeId);
+        String messageId = generateMessageId();
+        GetNode getNode = new GetNode("get_node", args, messageId);
+        JSONObject jsonObject = (JSONObject) JSON.toJSON(getNode);
+        String json = jsonObject.toString();
+        webSocketClient.send(json);
+
+        String receiveData = null;
+        long startTime = System.currentTimeMillis();
+        while (receiveData == null) {
+            receiveData = redisCache.getCacheObject("message_id:" + messageId);
+            if(System.currentTimeMillis() - startTime > 5000){
+                throw new RuntimeException("获取空气传感器数据失败！");
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        redisCache.deleteObject("message_id:" + messageId);
+
+        JSONObject jsonObject1 = JSON.parseObject(receiveData);
+        JSONObject result = (JSONObject) jsonObject1.get("result");
+        JSONObject attribute = (JSONObject) result.get("attributes");
+        Iterator it = attribute.entrySet().iterator();
+        HashSet<Integer> set = new HashSet<Integer>();
+        String attributePath = null;
+
+        while (it.hasNext()) {
+            String next = it.next().toString();
+            if(next.split("=")[0].contains("514")){
+                attributePath = next.split("=")[0];
+                break;
+            }
+        }
+
+        if(attributePath == null){
+            return Result.error("不支持该设备类型");
+        }
+
+        String[] split = attributePath.split("/");
+        attributePath = split[0] + "/514/" + "5";
+
+        messageId = generateMessageId();
+        OperateFanDto operateFanDto = new OperateFanDto();
+        operateFanDto.setMessage_id(messageId);
+        operateFanDto.setCommand("write_attribute");
+        operateFanDto.setArgs(new OperateFanArgs(nodeId,attributePath,value));
+
+        jsonObject = (JSONObject) JSON.toJSON(operateFanDto);
+        json = jsonObject.toString();
+        webSocketClient.send(json);
+
+        receiveData = null;
+        startTime = System.currentTimeMillis();
+        while (receiveData == null) {
+            receiveData = redisCache.getCacheObject("message_id:" + messageId);
+            if(System.currentTimeMillis() - startTime > 5000){
+                throw new RuntimeException("操作风扇失败");
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        redisCache.deleteObject("message_id:" + messageId);
+        if(receiveData.contains("0")){
+            return Result.ok("操作成功！");
+        }else {
+            return Result.error("操作异常！");
+        }
+    }
+
+    @Override
+    public Result operateColorfulLight(Integer nodeId, Integer value) {
+        return null;
+    }
+
 //    public Result detectCluster(Object object) {
 ////        String deviceId = "3fcd84e5-5acf-4808-aac4-bd9cd3893a72";
 //        LinkedHashMap json = (LinkedHashMap) object;
@@ -225,5 +319,9 @@ public class DeviceServiceImpl implements DeviceService {
         device.setNodeId(nodeId);
         device.setDeviceType(DT);
         return device;
+    }
+
+    public String generateMessageId(){
+        return new SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date());
     }
 }

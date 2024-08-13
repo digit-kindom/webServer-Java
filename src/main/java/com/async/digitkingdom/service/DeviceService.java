@@ -24,4 +24,8 @@ public interface DeviceService {
     Result receiveImageFromCamera(int frameSize);
 
     Result sendAlert();
+
+    Result operateFan(Integer nodeId, Integer value);
+
+    Result operateColorfulLight(Integer nodeId, Integer value);
 }
